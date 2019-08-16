@@ -31,7 +31,6 @@
   <name>contrib/cube-storage-plugin</name>
 
   <properties>
-<!--     <mongo.TestSuite>**/MongoTestSuit.class</mongo.TestSuite>-->
   </properties>
 
   <dependencies>
@@ -41,12 +40,6 @@
       <version>${project.version}</version>
     </dependency>
 
-
-  <dependency>
-    <groupId>org.mongodb</groupId>
-    <artifactId>mongo-java-driver</artifactId>
-    <version>3.8.0</version>
-  </dependency>
 
     <!-- Test dependencie -->
     <dependency>

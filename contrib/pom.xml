@@ -49,6 +49,7 @@
     <module>storage-kafka</module>
     <module>storage-kudu</module>
     <module>storage-opentsdb</module>
+    <module>storage-cube</module>
     <module>data</module>
     <module>udfs</module>
   </modules>

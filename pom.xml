@@ -44,18 +44,25 @@
 
     <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
     <proto.cas.path>${project.basedir}/src/main/protobuf/</proto.cas.path>
-    <dep.junit.version>4.12</dep.junit.version>
-    <dep.slf4j.version>1.7.25</dep.slf4j.version>
+    <junit.version>4.12</junit.version>
+    <slf4j.version>1.7.26</slf4j.version>
     <shaded.guava.version>23.0</shaded.guava.version>
     <guava.version>19.0</guava.version>
     <forkCount>2</forkCount>
     <parquet.version>1.10.0</parquet.version>
-    <calcite.version>1.18.0-drill-r2</calcite.version>
-    <avatica.version>1.13.0</avatica.version>
+    <!--
+      For development purposes to be able to use custom Calcite versions (e.g. not present in jitpack
+      repository or from local repository) update this property to desired value (e.g. org.apache.calcite).
+      In case if new value is org.apache.calcite, one needs to remove `org.apache.calcite:*` from
+      avoid_bad_dependencies plugin found in the file.
+    -->
+    <calcite.groupId>com.github.vvysotskyi.drill-calcite</calcite.groupId>
+    <calcite.version>1.20.0-drill-r0</calcite.version>
+    <avatica.version>1.15.0</avatica.version>
     <janino.version>3.0.11</janino.version>
     <sqlline.version>1.8.0</sqlline.version>
-    <jackson.version>2.9.5</jackson.version>
-    <jackson.databind.version>2.9.5</jackson.databind.version>
+    <jackson.version>2.9.9</jackson.version>
+    <jackson.databind.version>2.9.9</jackson.databind.version>
     <zookeeper.version>3.4.12</zookeeper.version>
     <mapr.release.version>6.1.0-mapr</mapr.release.version>
     <ojai.version>3.0-mapr-1808</ojai.version>
@@ -63,14 +70,13 @@
     <findbugs.version>3.0.0</findbugs.version>
     <netty.tcnative.classifier />
     <commons.io.version>2.4</commons.io.version>
-    <junit.version>4.11</junit.version>
     <hamcrest.core.version>1.3</hamcrest.core.version>
     <maven.embedder.version>3.5.3</maven.embedder.version>
     <curator.version>2.7.1</curator.version>
-    <wiremock.standalone.version>2.5.1</wiremock.standalone.version>
-    <jmockit.version>1.43</jmockit.version>
-    <logback.version>1.0.13</logback.version>
-    <mockito.version>2.18.3</mockito.version>
+    <wiremock.standalone.version>2.23.2</wiremock.standalone.version>
+    <jmockit.version>1.47</jmockit.version>
+    <logback.version>1.2.3</logback.version>
+    <mockito.version>2.28.2</mockito.version>
     <!--
       Currently Hive storage plugin only supports Apache Hive 2.3.2 or vendor specific variants of the
       Apache Hive 2.3.2. If the version is changed, make sure the jars and their dependencies are updated.
@@ -80,10 +86,10 @@
     <hbase.version>2.1.1</hbase.version>
     <fmpp.version>1.0</fmpp.version>
     <freemarker.version>2.3.28</freemarker.version>
-    <javassist.version>3.24.0-GA</javassist.version>
+    <javassist.version>3.25.0-GA</javassist.version>
     <msgpack.version>0.6.6</msgpack.version>
     <reflections.version>0.9.10</reflections.version>
-    <avro.version>1.8.2</avro.version>
+    <avro.version>1.9.0</avro.version>
     <metrics.version>4.0.2</metrics.version>
     <jetty.version>9.3.25.v20180904</jetty.version>
     <jersey.version>2.25.1</jersey.version>
@@ -94,17 +100,18 @@
     <rat.skip>true</rat.skip>
     <license.skip>true</license.skip>
     <docker.repository>drill/apache-drill</docker.repository>
-    <antlr.version>4.7.1</antlr.version>
+    <antlr.version>4.7.2</antlr.version>
     <lowestMavenVersion>3.3.3</lowestMavenVersion>
     <commons.net.version>3.6</commons.net.version>
     <commons.validator.version>1.6</commons.validator.version>
     <commons.text.version>1.6</commons.text.version>
     <protobuf.version>3.6.1</protobuf.version>
+    <codemodel.version>2.6</codemodel.version>
   </properties>
 
   <scm>
-    <connection>scm:git:https://git-wip-us.apache.org/repos/asf/drill.git</connection>
-    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/drill.git</developerConnection>
+    <connection>scm:git:https://gitbox.apache.org/repos/asf/drill.git</connection>
+    <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/drill.git</developerConnection>
     <url>https://github.com/apache/drill</url>
     <tag>HEAD</tag>
   </scm>
@@ -167,31 +174,6 @@
     </repository>
 
     <repository>
-      <!-- Keep until we move back to released calcite versions. -->
-      <id>mapr-drill-optiq-snapshots</id>
-      <name>MapR Drill Optiq Snapshots</name>
-      <url>http://repository.mapr.com/nexus/content/repositories/drill-optiq/</url>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
-
-    <repository>
-      <id>mapr-drill-thirdparty</id>
-      <name>MapR Drill Third Party Artifacts</name>
-      <url>http://repository.mapr.com/nexus/content/repositories/drill/</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </repository>
-
-    <repository>
       <id>sonatype-nexus-snapshots</id>
       <url>https://oss.sonatype.org/content/repositories/snapshots</url>
       <releases>
@@ -200,6 +182,11 @@
       <snapshots>
         <enabled>true</enabled>
       </snapshots>
+    </repository>
+
+    <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
     </repository>
   </repositories>
 
@@ -337,13 +324,14 @@
         </executions>
         <configuration>
           <excludes>
-            <!-- Types log1, log2, sqllog and sqllog2 are used to test he logRegex format plugin. -->
+            <!-- Types log1, log2, sqllog and sqllog2, ssdlog are used to test he logRegex format plugin. -->
             <exclude>**/*.log1</exclude>
             <exclude>**/*.log2</exclude>
             <exclude>**/*.sqllog</exclude>
             <exclude>**/*.sqllog2</exclude>
             <exclude>**/*.syslog</exclude>
             <exclude>**/*.syslog1</exclude>
+            <exclude>**/*.ssdlog</exclude>
             <exclude>**/*.ltsv</exclude>
             <exclude>**/*.log</exclude>
             <exclude>**/*.css</exclude>
@@ -527,6 +515,7 @@
                     <exclude>jdk.tools:jdk.tools</exclude>
                     <exclude>org.json:json</exclude>
                     <exclude>org.beanshell:bsh</exclude>
+                    <exclude>org.apache.calcite:*</exclude>
                   </excludes>
                 </bannedDependencies>
               </rules>
@@ -957,25 +946,25 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <version>${dep.slf4j.version}</version>
+      <version>${slf4j.version}</version>
     </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jul-to-slf4j</artifactId>
-      <version>${dep.slf4j.version}</version>
+      <version>${slf4j.version}</version>
     </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jcl-over-slf4j</artifactId>
-      <version>${dep.slf4j.version}</version>
+      <version>${slf4j.version}</version>
     </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>log4j-over-slf4j</artifactId>
-      <version>${dep.slf4j.version}</version>
+      <version>${slf4j.version}</version>
     </dependency>
 
     <dependency>
@@ -995,7 +984,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>${dep.junit.version}</version>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -1058,7 +1047,7 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>org.apache.calcite</groupId>
+        <groupId>${calcite.groupId}</groupId>
         <artifactId>calcite-core</artifactId>
         <version>${calcite.version}</version>
         <exclusions>

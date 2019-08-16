@@ -23,10 +23,10 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.BaseScanOperatorExecTest.BaseScanFixtureBuilder;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ScanFixture;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.rowSet.RowSetUtilities;
@@ -126,6 +126,26 @@ public class TestScanOperExecSmoothing extends BaseScanOperatorExecTest {
     assertEquals(1, scan.batchAccessor().schemaVersion());
     scan.batchAccessor().release();
 
+    readSchemaChangeBatches(scanFixture, reader2);
+  }
+
+  @Test
+  public void testSchemaChangeNoSchemaBatch() {
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
+    reader1.batchLimit = 2;
+    MockEarlySchemaReader reader2 = new MockEarlySchemaReader2();
+    reader2.batchLimit = 2;
+
+    BaseScanFixtureBuilder builder = simpleBuilder(reader1, reader2);
+    builder.enableSchemaBatch = false;
+    ScanFixture scanFixture = builder.build();
+
+    readSchemaChangeBatches(scanFixture, reader2);
+  }
+
+  private void readSchemaChangeBatches(ScanFixture scanFixture, MockEarlySchemaReader reader2) {
+    ScanOperatorExec scan = scanFixture.scanOp;
+
     // First batch
 
     assertTrue(scan.next());
@@ -140,10 +160,10 @@ public class TestScanOperExecSmoothing extends BaseScanOperatorExecTest {
 
     // Second reader.
 
-    BatchSchema expectedSchema2 = new SchemaBuilder()
+    TupleMetadata expectedSchema2 = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .addNullable("b", MinorType.VARCHAR, 10)
-        .build();
+        .buildSchema();
 
     assertTrue(scan.next());
     assertEquals(2, scan.batchAccessor().schemaVersion());

@@ -121,7 +121,7 @@
     <dependency>
       <groupId>com.sun.codemodel</groupId>
       <artifactId>codemodel</artifactId>
-      <version>2.6</version>
+      <version>${codemodel.version}</version>
     </dependency>
     <dependency>
       <groupId>org.eclipse.jetty</groupId>
@@ -207,7 +207,7 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.apache.calcite</groupId>
+      <groupId>${calcite.groupId}</groupId>
       <artifactId>calcite-core</artifactId>
     </dependency>
     <dependency>
@@ -289,11 +289,6 @@
     <dependency>
       <groupId>org.apache.drill.metastore</groupId>
       <artifactId>drill-metastore-api</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.drill.metastore</groupId>
-      <artifactId>drill-file-metastore-plugin</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -552,10 +547,6 @@
       <groupId>sqlline</groupId>
       <artifactId>sqlline</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.antlr</groupId>
-      <artifactId>antlr4-runtime</artifactId>
-    </dependency>
   </dependencies>
 
   <profiles>
@@ -682,7 +673,7 @@
             <configuration>
               <artifactItems>
                 <artifactItem>
-                  <groupId>org.apache.calcite</groupId>
+                  <groupId>${calcite.groupId}</groupId>
                   <artifactId>calcite-core</artifactId>
                   <type>jar</type>
                   <overWrite>true</overWrite>
@@ -804,23 +795,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-      </plugin>
-      <plugin>
-        <groupId>org.antlr</groupId>
-        <artifactId>antlr4-maven-plugin</artifactId>
-        <version>${antlr.version}</version>
-        <configuration>
-          <listener>false</listener>
-          <visitor>true</visitor>
-          <outputDirectory>${project.build.directory}/generated-sources</outputDirectory>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>antlr4</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
     <pluginManagement>

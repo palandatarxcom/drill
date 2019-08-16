@@ -42,10 +42,12 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch.IterOutcome;
+import org.apache.drill.exec.record.BatchSchemaBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.test.SubOperatorTest;
@@ -86,7 +88,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
 
     public MockOperatorExec(VectorContainer container) {
       batchAccessor = new VectorContainerAccessor();
-      batchAccessor.setContainer(container);
+      batchAccessor.addBatch(container);
     }
 
     public MockOperatorExec(VectorContainerAccessor accessor) {
@@ -114,11 +116,11 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
         return false;
       }
       if (nextCount == schemaChangeAt) {
-        BatchSchema newSchema = new SchemaBuilder(batchAccessor.getSchema())
-            .add("b", MinorType.VARCHAR)
-            .build();
-        VectorContainer newContainer = new VectorContainer(fixture.allocator(), newSchema);
-        batchAccessor.setContainer(newContainer);
+        BatchSchemaBuilder newSchema = new BatchSchemaBuilder(batchAccessor.getSchema());
+        newSchema.schemaBuilder()
+            .add("b", MinorType.VARCHAR);
+        VectorContainer newContainer = new VectorContainer(fixture.allocator(), newSchema.build());
+        batchAccessor.addBatch(newContainer);
       }
       return true;
     }
@@ -134,8 +136,10 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
   }
 
   private static VectorContainer mockBatch() {
-    VectorContainer container = new VectorContainer(fixture.allocator(), new SchemaBuilder()
-        .add("a", MinorType.INT)
+    SchemaBuilder schemaBuilder = new SchemaBuilder()
+      .add("a", MinorType.INT);
+    VectorContainer container = new VectorContainer(fixture.allocator(), new BatchSchemaBuilder()
+        .withSchemaBuilder(schemaBuilder)
         .build());
     container.buildSchema(SelectionVectorMode.NONE);
     return container;
@@ -144,7 +148,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
   private OperatorRecordBatch makeOpBatch(MockOperatorExec opExec) {
     // Dummy operator definition
     PhysicalOperator popConfig = new Limit(null, 0, 100);
-    return new OperatorRecordBatch(fixture.getFragmentContext(), popConfig, opExec);
+    return new OperatorRecordBatch(fixture.getFragmentContext(), popConfig, opExec, true);
   }
 
   /**
@@ -349,9 +353,11 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
 
   @Test
   public void testBatchAccessor() {
-    BatchSchema schema = new SchemaBuilder()
-        .add("a", MinorType.INT)
-        .add("b", MinorType.VARCHAR)
+    SchemaBuilder schemaBuilder = new SchemaBuilder()
+      .add("a", MinorType.INT)
+      .add("b", MinorType.VARCHAR);
+    BatchSchema schema = new BatchSchemaBuilder()
+        .withSchemaBuilder(schemaBuilder)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(schema)
         .addRow(10, "fred")
@@ -419,10 +425,10 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
 
   @Test
   public void testSchemaChange() {
-    BatchSchema schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
-        .build();
+        .buildSchema();
     SingleRowSet rs = fixture.rowSetBuilder(schema)
         .addRow(10, "fred")
         .addRow(20, "wilma")
@@ -438,7 +444,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     // Changing data does not trigger schema change
 
     container.zeroVectors();
-    opExec.batchAccessor.setContainer(container);
+    opExec.batchAccessor.addBatch(container);
     assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
 
     // Different container, same vectors, does not trigger a change
@@ -448,10 +454,10 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
       c2.add(vw.getValueVector());
     }
     c2.buildSchema(SelectionVectorMode.NONE);
-    opExec.batchAccessor.setContainer(c2);
+    opExec.batchAccessor.addBatch(c2);
     assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
 
-    opExec.batchAccessor.setContainer(container);
+    opExec.batchAccessor.addBatch(container);
     assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
 
     // Replacing a vector with another of the same type does trigger
@@ -463,13 +469,13 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
             container.getValueVector(1).getValueVector().getField(),
             fixture.allocator(), null));
     c3.buildSchema(SelectionVectorMode.NONE);
-    opExec.batchAccessor.setContainer(c3);
+    opExec.batchAccessor.addBatch(c3);
     assertEquals(schemaVersion + 1, opExec.batchAccessor().schemaVersion());
     schemaVersion = opExec.batchAccessor().schemaVersion();
 
     // No change if same schema again
 
-    opExec.batchAccessor.setContainer(c3);
+    opExec.batchAccessor.addBatch(c3);
     assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
 
     // Adding a vector triggers a change
@@ -477,13 +483,13 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MaterializedField c = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL);
     c3.add(TypeHelper.getNewVector(c, fixture.allocator(), null));
     c3.buildSchema(SelectionVectorMode.NONE);
-    opExec.batchAccessor.setContainer(c3);
+    opExec.batchAccessor.addBatch(c3);
     assertEquals(schemaVersion + 1, opExec.batchAccessor().schemaVersion());
     schemaVersion = opExec.batchAccessor().schemaVersion();
 
     // No change if same schema again
 
-    opExec.batchAccessor.setContainer(c3);
+    opExec.batchAccessor.addBatch(c3);
     assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
 
     // Removing a vector triggers a change
@@ -491,7 +497,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     c3.remove(c3.getValueVector(2).getValueVector());
     c3.buildSchema(SelectionVectorMode.NONE);
     assertEquals(2, c3.getNumberOfColumns());
-    opExec.batchAccessor.setContainer(c3);
+    opExec.batchAccessor.addBatch(c3);
     assertEquals(schemaVersion + 1, opExec.batchAccessor().schemaVersion());
     schemaVersion = opExec.batchAccessor().schemaVersion();
 
@@ -508,10 +514,10 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
 
   @Test
   public void testSv2() {
-    BatchSchema schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
-        .build();
+        .buildSchema();
     SingleRowSet rs = fixture.rowSetBuilder(schema)
         .addRow(10, "fred")
         .addRow(20, "wilma")
@@ -519,7 +525,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
         .build();
 
     ContainerAndSv2Accessor accessor = new ContainerAndSv2Accessor();
-    accessor.setContainer(rs.container());
+    accessor.addBatch(rs.container());
     accessor.setSelectionVector(rs.getSv2());
 
     MockOperatorExec opExec = new MockOperatorExec(accessor);

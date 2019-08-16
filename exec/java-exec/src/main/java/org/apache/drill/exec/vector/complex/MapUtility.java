@@ -134,10 +134,10 @@ public class MapUtility {
           if (repeated) {
             fieldReader.copyAsValue(
                 mapWriter.list(MappifyUtility.fieldValue)
-                    .varDecimal(valueMajorType.getScale(), valueMajorType.getPrecision()));
+                    .varDecimal(valueMajorType.getPrecision(), valueMajorType.getScale()));
           } else {
             fieldReader.copyAsValue(
-                mapWriter.varDecimal(MappifyUtility.fieldValue, valueMajorType.getScale(), valueMajorType.getPrecision()));
+                mapWriter.varDecimal(MappifyUtility.fieldValue, valueMajorType.getPrecision(), valueMajorType.getScale()));
           }
           break;
         case DATE:
@@ -335,9 +335,9 @@ public class MapUtility {
           break;
         case VARDECIMAL:
           if (repeated) {
-            fieldReader.copyAsValue(mapWriter.list(fieldName).varDecimal(valueMajorType.getScale(), valueMajorType.getPrecision()));
+            fieldReader.copyAsValue(mapWriter.list(fieldName).varDecimal(valueMajorType.getPrecision(), valueMajorType.getScale()));
           } else {
-            fieldReader.copyAsValue(mapWriter.varDecimal(fieldName, valueMajorType.getScale(), valueMajorType.getPrecision()));
+            fieldReader.copyAsValue(mapWriter.varDecimal(fieldName, valueMajorType.getPrecision(), valueMajorType.getScale()));
           }
           break;
         case DATE:
@@ -441,11 +441,6 @@ public class MapUtility {
     try {
       MajorType valueMajorType = fieldReader.getType();
       MinorType valueMinorType = valueMajorType.getMinorType();
-      boolean repeated = false;
-
-      if (valueMajorType.getMode() == TypeProtos.DataMode.REPEATED) {
-        repeated = true;
-      }
 
       switch (valueMinorType) {
         case TINYINT:
@@ -485,7 +480,7 @@ public class MapUtility {
           fieldReader.copyAsValue(listWriter.decimal38Sparse());
           break;
         case VARDECIMAL:
-          fieldReader.copyAsValue(listWriter.varDecimal(valueMajorType.getScale(), valueMajorType.getPrecision()));
+          fieldReader.copyAsValue(listWriter.varDecimal(valueMajorType.getPrecision(), valueMajorType.getScale()));
           break;
         case DATE:
           fieldReader.copyAsValue(listWriter.date());

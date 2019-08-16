@@ -528,7 +528,7 @@ public class TestTupleSchema extends SubOperatorTest {
 
     // And it is equivalent to the round trip to a batch schema.
 
-    BatchSchema batchSchema = root.toBatchSchema(SelectionVectorMode.NONE);
+    BatchSchema batchSchema = new BatchSchema(SelectionVectorMode.NONE, root.toFieldList());
     assertTrue(root.isEquivalent(MetadataUtils.fromFields(batchSchema)));
   }
 
@@ -709,7 +709,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(types.contains(MinorType.BIGINT));
     assertTrue(types.contains(MinorType.VARCHAR));
 
-    BatchSchema batchSchema = ((TupleSchema) schema).toBatchSchema(SelectionVectorMode.NONE);
+    BatchSchema batchSchema = new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList());
 
     MaterializedField field = batchSchema.getColumn(0);
     assertEquals("u", field.getName());
@@ -759,7 +759,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(types.contains(MinorType.BIGINT));
     assertTrue(types.contains(MinorType.VARCHAR));
 
-    BatchSchema batchSchema = ((TupleSchema) schema).toBatchSchema(SelectionVectorMode.NONE);
+    BatchSchema batchSchema = new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList());
 
     MaterializedField field = batchSchema.getColumn(0);
     assertEquals("list", field.getName());
@@ -821,5 +821,52 @@ public class TestTupleSchema extends SubOperatorTest {
     } catch (IllegalArgumentException e) {
       // Expected
     }
+  }
+
+  @Test
+  public void testJsonString() {
+    TupleMetadata schema = new SchemaBuilder()
+      .add("col_int", MinorType.INT)
+      .buildSchema();
+    schema.setProperty("prop", "val");
+
+    String expected = "{\"type\":\"tuple_schema\","
+      + "\"columns\":[{\"name\":\"col_int\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}],"
+      + "\"properties\":{\"prop\":\"val\"}}";
+
+    assertEquals(expected, schema.jsonString());
+  }
+
+  @Test
+  public void testFromJsonTyped() {
+    String jsonString = "{\"type\":\"tuple_schema\","
+      + "\"columns\":[{\"name\":\"col_int\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}],"
+      + "\"properties\":{\"prop\":\"val\"}}";
+
+    TupleMetadata result = TupleMetadata.of(jsonString);
+    assertTrue(result instanceof TupleSchema);
+    assertEquals(1, result.size());
+    ColumnMetadata column = result.metadata("col_int");
+    assertEquals(MinorType.INT, column.type());
+    assertEquals("val", result.property("prop"));
+  }
+
+  @Test
+  public void testFromJsonUntyped() {
+    String untyped = "{\"columns\":[{\"name\":\"col_int\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}],"
+      + "\"properties\":{\"prop\":\"val\"}}";
+    TupleMetadata result = TupleMetadata.of(untyped);
+    assertTrue(result instanceof TupleSchema);
+    assertEquals(1, result.size());
+    ColumnMetadata column = result.metadata("col_int");
+    assertEquals(MinorType.INT, column.type());
+    assertEquals("val", result.property("prop"));
+  }
+
+  @Test
+  public void testNullOrEmptyJsonString() {
+    assertNull(TupleMetadata.of(null));
+    assertNull(TupleMetadata.of(""));
+    assertNull(TupleMetadata.of("   "));
   }
 }

@@ -121,12 +121,11 @@ public abstract class AggPrelBase extends DrillAggregateRelBase implements Prel 
   public AggPrelBase(RelOptCluster cluster,
                      RelTraitSet traits,
                      RelNode child,
-                     boolean indicator,
                      ImmutableBitSet groupSet,
                      List<ImmutableBitSet> groupSets,
                      List<AggregateCall> aggCalls,
                      OperatorPhase phase) throws InvalidRelException {
-    super(cluster, traits, child, indicator, groupSet, groupSets, aggCalls);
+    super(cluster, traits, child, groupSet, groupSets, aggCalls);
     this.operPhase = phase;
     createKeysAndExprs();
   }
@@ -201,8 +200,7 @@ public abstract class AggPrelBase extends DrillAggregateRelBase implements Prel 
       args.add(FieldReference.getWithQuotedRef(fn.get(i)));
     }
 
-    // for count(1).
-    if (args.isEmpty()) {
+    if (SqlKind.COUNT.name().equals(call.getAggregation().getName()) && args.isEmpty()) {
       args.add(new ValueExpressions.LongExpression(1L));
     }
     return new FunctionCall(call.getAggregation().getName().toLowerCase(), args, ExpressionPosition.UNKNOWN);

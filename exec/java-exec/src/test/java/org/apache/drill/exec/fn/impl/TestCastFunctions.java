@@ -35,6 +35,7 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.BatchSchemaBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.vector.IntervalDayVector;
 import org.apache.drill.exec.vector.IntervalYearVector;
@@ -639,7 +640,7 @@ public class TestCastFunctions extends ClusterTest {
     String query = "select cast('123.0' as decimal(3, 5))";
 
     thrown.expect(UserRemoteException.class);
-    thrown.expectMessage(containsString("VALIDATION ERROR: Expected scale less than or equal to precision, but was scale 5 and precision 3"));
+    thrown.expectMessage(containsString("VALIDATION ERROR: Expected scale less than or equal to precision, but was precision 3 and scale 5"));
 
     run(query);
   }
@@ -797,8 +798,10 @@ public class TestCastFunctions extends ClusterTest {
       String q = String.format(query, entry.getKey());
 
       MaterializedField field = MaterializedField.create("coal", entry.getValue());
-      BatchSchema expectedSchema = new SchemaBuilder()
-          .add(field)
+      SchemaBuilder schemaBuilder = new SchemaBuilder()
+          .add(field);
+      BatchSchema expectedSchema = new BatchSchemaBuilder()
+          .withSchemaBuilder(schemaBuilder)
           .build();
 
       // Validate schema
@@ -833,10 +836,10 @@ public class TestCastFunctions extends ClusterTest {
     // todo: uncomment after DRILL-6993 is resolved
     // typesMap.put("VARBINARY(31)", Types.withPrecision(VARBINARY, mode, 31));
     typesMap.put("VARCHAR(26)", Types.withPrecision(VARCHAR, mode, 26));
-    typesMap.put("DECIMAL(9, 2)", Types.withScaleAndPrecision(VARDECIMAL, mode, 2, 9));
-    typesMap.put("DECIMAL(18, 5)", Types.withScaleAndPrecision(VARDECIMAL, mode, 5, 18));
-    typesMap.put("DECIMAL(28, 3)", Types.withScaleAndPrecision(VARDECIMAL, mode, 3, 28));
-    typesMap.put("DECIMAL(38, 2)", Types.withScaleAndPrecision(VARDECIMAL, mode, 2, 38));
+    typesMap.put("DECIMAL(9, 2)", Types.withPrecisionAndScale(VARDECIMAL, mode, 9, 2));
+    typesMap.put("DECIMAL(18, 5)", Types.withPrecisionAndScale(VARDECIMAL, mode, 18, 5));
+    typesMap.put("DECIMAL(28, 3)", Types.withPrecisionAndScale(VARDECIMAL, mode, 28, 3));
+    typesMap.put("DECIMAL(38, 2)", Types.withPrecisionAndScale(VARDECIMAL, mode, 38, 2));
 
     return typesMap;
   }

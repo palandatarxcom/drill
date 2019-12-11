@@ -188,9 +188,7 @@ public class WorkspaceSchemaFactory {
   }
 
   public WorkspaceSchema createSchema(List<String> parentSchemaPath, SchemaConfig schemaConfig, DrillFileSystem fs) throws IOException {
-    if (!accessible(fs)) {
-      return null;
-    }
+    logger.info("wsPath {}, parentSchemaPath, {}", this.wsPath, Arrays.toString(parentSchemaPath.toArray()));
     return new WorkspaceSchema(parentSchemaPath, schemaName, schemaConfig, fs);
   }
 

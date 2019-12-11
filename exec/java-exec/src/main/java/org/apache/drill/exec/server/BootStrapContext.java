@@ -29,7 +29,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.SynchronousQueue;
 import org.apache.drill.common.AutoCloseables;
-import org.apache.drill.common.KerberosUtil;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.scanner.persistence.ScanResult;
@@ -132,25 +131,16 @@ public class BootStrapContext implements AutoCloseable {
 
         // service principal canonicalization
         final String principal = config.getString(ExecConstants.SERVICE_PRINCIPAL);
-        final String parts[] = KerberosUtil.splitPrincipalIntoParts(principal);
-        if (parts.length != 3) {
-          throw new DrillbitStartupException(
-              String.format("Invalid %s, Drill service principal must be of format: primary/instance@REALM",
-                ExecConstants.SERVICE_PRINCIPAL));
-        }
-        parts[1] = KerberosUtil.canonicalizeInstanceName(parts[1], hostName);
 
-        final String canonicalizedPrincipal = KerberosUtil.getPrincipalFromParts(parts[0], parts[1], parts[2]);
         final String keytab = config.getString(ExecConstants.SERVICE_KEYTAB_LOCATION);
 
         // login to KDC (AS)
         // Note that this call must happen before any call to UserGroupInformation#getLoginUser,
         // but there is no way to enforce the order (this static init. call and parameters from
         // DrillConfig are both required).
-        UserGroupInformation.loginUserFromKeytab(canonicalizedPrincipal, keytab);
+        UserGroupInformation.loginUserFromKeytab(principal, keytab);
 
-        logger.info("Process user name: '{}' and logged in successfully as '{}'", processUserName,
-            canonicalizedPrincipal);
+        logger.info("user name: '{}' and logged in successfully as '{}'", processUserName, principal);
       } else {
         UserGroupInformation.getLoginUser(); // init
       }

@@ -32,37 +32,35 @@ import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.xsort.managed.PriorityQueueCopierWrapper.BatchMerger;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.schema.SchemaBuilder;
-import org.apache.drill.test.rowSet.RowSetComparison;
-
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class SortTestUtilities {
 
   private SortTestUtilities() { }
 
-  public static BatchSchema makeSchema(MinorType type, boolean nullable) {
+  public static TupleMetadata makeSchema(MinorType type, boolean nullable) {
     return new SchemaBuilder()
         .add("key", type, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED)
         .add("value", MinorType.VARCHAR)
-        .build();
+        .buildSchema();
   }
 
-  public static BatchSchema nonNullSchema() {
+  public static TupleMetadata nonNullSchema() {
     return makeSchema(MinorType.INT, false);
   }
 
-  public static BatchSchema nullableSchema() {
+  public static TupleMetadata nullableSchema() {
     return makeSchema(MinorType.INT, true);
   }
 
-  @SuppressWarnings("resource")
   public static Sort makeCopierConfig(String sortOrder, String nullOrder) {
     FieldReference expr = FieldReference.getWithQuotedRef("key");
     Ordering ordering = new Ordering(sortOrder, expr, nullOrder);
@@ -126,8 +124,7 @@ public class SortTestUtilities {
       for (RowSet expectedSet : expected) {
         assertTrue(merger.next());
         RowSet rowSet = DirectRowSet.fromContainer(dest);
-        new RowSetComparison(expectedSet)
-              .verifyAndClearAll(rowSet);
+        RowSetUtilities.verify(expectedSet, rowSet);
       }
       assertFalse(merger.next());
     }

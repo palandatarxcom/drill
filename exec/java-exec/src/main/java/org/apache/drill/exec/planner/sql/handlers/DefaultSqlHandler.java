@@ -230,7 +230,6 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     }
 
     try {
-
       // HEP for rules, which are failed at the LOGICAL_PLANNING stage for Volcano planner
       final RelNode setOpTransposeNode = transform(PlannerType.HEP, PlannerPhase.PRE_LOGICAL_PLANNING, relNode);
 
@@ -561,7 +560,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     /*
      * 4.)
      * If two fragments are both estimated to be parallelization one, remove the exchange
-     * separating them
+     * separating them.
      */
     phyRelNode = ExcessiveExchangeIdentifier.removeExcessiveEchanges(phyRelNode, targetSliceSize);
 

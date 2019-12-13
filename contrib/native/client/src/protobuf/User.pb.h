@@ -4567,6 +4567,18 @@ class ServerMeta : public ::google::protobuf::Message {
   inline const ::google::protobuf::RepeatedField<int>& union_support() const;
   inline ::google::protobuf::RepeatedField<int>* mutable_union_support();
 
+  // optional string current_schema = 50;
+  inline bool has_current_schema() const;
+  inline void clear_current_schema();
+  static const int kCurrentSchemaFieldNumber = 50;
+  inline const ::std::string& current_schema() const;
+  inline void set_current_schema(const ::std::string& value);
+  inline void set_current_schema(const char* value);
+  inline void set_current_schema(const char* value, size_t size);
+  inline ::std::string* mutable_current_schema();
+  inline ::std::string* release_current_schema();
+  inline void set_allocated_current_schema(::std::string* current_schema);
+
   // @@protoc_insertion_point(class_scope:exec.user.ServerMeta)
  private:
   inline void set_has_all_tables_selectable();
@@ -4643,6 +4655,8 @@ class ServerMeta : public ::google::protobuf::Message {
   inline void clear_has_table_term();
   inline void set_has_transaction_supported();
   inline void clear_has_transaction_supported();
+  inline void set_has_current_schema();
+  inline void clear_has_current_schema();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
@@ -4695,9 +4709,10 @@ class ServerMeta : public ::google::protobuf::Message {
   ::google::protobuf::RepeatedPtrField< ::std::string> system_functions_;
   ::std::string* table_term_;
   ::google::protobuf::RepeatedField<int> union_support_;
+  ::std::string* current_schema_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(49 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(50 + 31) / 32];
 
   friend void  protobuf_AddDesc_User_2eproto();
   friend void protobuf_AssignDesc_User_2eproto();
@@ -4809,6 +4824,13 @@ class RunQuery : public ::google::protobuf::Message {
   inline ::exec::user::PreparedStatementHandle* release_prepared_statement_handle();
   inline void set_allocated_prepared_statement_handle(::exec::user::PreparedStatementHandle* prepared_statement_handle);
 
+  // optional int32 autolimit_rowcount = 6;
+  inline bool has_autolimit_rowcount() const;
+  inline void clear_autolimit_rowcount();
+  static const int kAutolimitRowcountFieldNumber = 6;
+  inline ::google::protobuf::int32 autolimit_rowcount() const;
+  inline void set_autolimit_rowcount(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:exec.user.RunQuery)
  private:
   inline void set_has_results_mode();
@@ -4819,6 +4841,8 @@ class RunQuery : public ::google::protobuf::Message {
   inline void clear_has_plan();
   inline void set_has_prepared_statement_handle();
   inline void clear_has_prepared_statement_handle();
+  inline void set_has_autolimit_rowcount();
+  inline void clear_has_autolimit_rowcount();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
@@ -4827,9 +4851,10 @@ class RunQuery : public ::google::protobuf::Message {
   ::std::string* plan_;
   ::google::protobuf::RepeatedPtrField< ::exec::bit::control::PlanFragment > fragments_;
   ::exec::user::PreparedStatementHandle* prepared_statement_handle_;
+  ::google::protobuf::int32 autolimit_rowcount_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(5 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(6 + 31) / 32];
 
   friend void  protobuf_AddDesc_User_2eproto();
   friend void protobuf_AssignDesc_User_2eproto();
@@ -11602,6 +11627,76 @@ ServerMeta::mutable_union_support() {
   return &union_support_;
 }
 
+// optional string current_schema = 50;
+inline bool ServerMeta::has_current_schema() const {
+  return (_has_bits_[1] & 0x00020000u) != 0;
+}
+inline void ServerMeta::set_has_current_schema() {
+  _has_bits_[1] |= 0x00020000u;
+}
+inline void ServerMeta::clear_has_current_schema() {
+  _has_bits_[1] &= ~0x00020000u;
+}
+inline void ServerMeta::clear_current_schema() {
+  if (current_schema_ != &::google::protobuf::internal::kEmptyString) {
+    current_schema_->clear();
+  }
+  clear_has_current_schema();
+}
+inline const ::std::string& ServerMeta::current_schema() const {
+  return *current_schema_;
+}
+inline void ServerMeta::set_current_schema(const ::std::string& value) {
+  set_has_current_schema();
+  if (current_schema_ == &::google::protobuf::internal::kEmptyString) {
+    current_schema_ = new ::std::string;
+  }
+  current_schema_->assign(value);
+}
+inline void ServerMeta::set_current_schema(const char* value) {
+  set_has_current_schema();
+  if (current_schema_ == &::google::protobuf::internal::kEmptyString) {
+    current_schema_ = new ::std::string;
+  }
+  current_schema_->assign(value);
+}
+inline void ServerMeta::set_current_schema(const char* value, size_t size) {
+  set_has_current_schema();
+  if (current_schema_ == &::google::protobuf::internal::kEmptyString) {
+    current_schema_ = new ::std::string;
+  }
+  current_schema_->assign(reinterpret_cast<const char*>(value), size);
+}
+inline ::std::string* ServerMeta::mutable_current_schema() {
+  set_has_current_schema();
+  if (current_schema_ == &::google::protobuf::internal::kEmptyString) {
+    current_schema_ = new ::std::string;
+  }
+  return current_schema_;
+}
+inline ::std::string* ServerMeta::release_current_schema() {
+  clear_has_current_schema();
+  if (current_schema_ == &::google::protobuf::internal::kEmptyString) {
+    return NULL;
+  } else {
+    ::std::string* temp = current_schema_;
+    current_schema_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+    return temp;
+  }
+}
+inline void ServerMeta::set_allocated_current_schema(::std::string* current_schema) {
+  if (current_schema_ != &::google::protobuf::internal::kEmptyString) {
+    delete current_schema_;
+  }
+  if (current_schema) {
+    set_has_current_schema();
+    current_schema_ = current_schema;
+  } else {
+    clear_has_current_schema();
+    current_schema_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
+  }
+}
+
 // -------------------------------------------------------------------
 
 // RunQuery
@@ -11783,6 +11878,28 @@ inline void RunQuery::set_allocated_prepared_statement_handle(::exec::user::Prep
   } else {
     clear_has_prepared_statement_handle();
   }
+}
+
+// optional int32 autolimit_rowcount = 6;
+inline bool RunQuery::has_autolimit_rowcount() const {
+  return (_has_bits_[0] & 0x00000020u) != 0;
+}
+inline void RunQuery::set_has_autolimit_rowcount() {
+  _has_bits_[0] |= 0x00000020u;
+}
+inline void RunQuery::clear_has_autolimit_rowcount() {
+  _has_bits_[0] &= ~0x00000020u;
+}
+inline void RunQuery::clear_autolimit_rowcount() {
+  autolimit_rowcount_ = 0;
+  clear_has_autolimit_rowcount();
+}
+inline ::google::protobuf::int32 RunQuery::autolimit_rowcount() const {
+  return autolimit_rowcount_;
+}
+inline void RunQuery::set_autolimit_rowcount(::google::protobuf::int32 value) {
+  set_has_autolimit_rowcount();
+  autolimit_rowcount_ = value;
 }
 
 

@@ -22,12 +22,14 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 
+import java.util.stream.Collectors;
+
 /**
  * Describes a map and repeated map. Both are tuples that have a tuple
  * schema as part of the column definition.
  */
-
 public class MapColumnMetadata extends AbstractColumnMetadata {
+
   private TupleMetadata parentTuple;
   private final TupleSchema mapSchema;
 
@@ -36,20 +38,17 @@ public class MapColumnMetadata extends AbstractColumnMetadata {
    *
    * @param schema materialized field description of the map
    */
-
   public MapColumnMetadata(MaterializedField schema) {
     this(schema, null);
   }
 
   /**
    * Build a map column metadata by cloning the type information (but not
-   * the children) of the materialized field provided. Use the hints
-   * provided.
+   * the children) of the materialized field provided.
    *
    * @param schema the schema to use
-   * @param hints metadata hints for this column
+   * @param mapSchema parent schema
    */
-
   MapColumnMetadata(MaterializedField schema, TupleSchema mapSchema) {
     super(schema);
     if (mapSchema == null) {
@@ -76,12 +75,12 @@ public class MapColumnMetadata extends AbstractColumnMetadata {
   }
 
   @Override
-  public AbstractColumnMetadata copy() {
+  public ColumnMetadata copy() {
     return new MapColumnMetadata(this);
   }
 
   @Override
-  protected void bind(TupleSchema parentTuple) {
+  public void bind(TupleMetadata parentTuple) {
     this.parentTuple = parentTuple;
   }
 
@@ -98,8 +97,6 @@ public class MapColumnMetadata extends AbstractColumnMetadata {
   public boolean isMap() { return true; }
 
   public TupleMetadata parentTuple() { return parentTuple; }
-
-  public TupleSchema mapSchemaImpl() { return mapSchema; }
 
   @Override
   public ColumnMetadata cloneEmpty() {
@@ -122,5 +119,22 @@ public class MapColumnMetadata extends AbstractColumnMetadata {
           .setMinorType(type)
           .setMode(mode)
           .build());
+  }
+
+  @Override
+  public String typeString() {
+    StringBuilder builder = new StringBuilder();
+    if (isArray()) {
+      builder.append("ARRAY<");
+    }
+    builder.append("STRUCT<");
+    builder.append(mapSchema().toMetadataList().stream()
+      .map(ColumnMetadata::columnString)
+      .collect(Collectors.joining(", ")));
+    builder.append(">");
+    if (isArray()) {
+      builder.append(">");
+    }
+    return builder.toString();
   }
 }

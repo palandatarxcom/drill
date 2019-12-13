@@ -20,7 +20,9 @@ package org.apache.drill.exec.record.metadata;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 
@@ -44,8 +46,9 @@ public class MetadataUtils {
    * @return the column metadata that wraps the field
    */
 
-  public static AbstractColumnMetadata fromField(MaterializedField field) {
-    MinorType type = field.getType().getMinorType();
+  public static ColumnMetadata fromField(MaterializedField field) {
+    MajorType majorType = field.getType();
+    MinorType type = majorType.getMinorType();
     switch (type) {
     case MAP:
       return MetadataUtils.newMap(field);
@@ -54,6 +57,10 @@ public class MetadataUtils {
         throw new UnsupportedOperationException(type.name() + " type must be nullable");
       }
       return new VariantColumnMetadata(field);
+    case VARDECIMAL:
+      int precision = majorType.hasPrecision() ? majorType.getPrecision() : Types.maxPrecision(type);
+      int scale = majorType.hasScale() ? majorType.getScale() : 0;
+      return MetadataUtils.newDecimal(field.getName(), type, majorType.getMode(), precision, scale);
     case LIST:
       switch (field.getType().getMode()) {
       case OPTIONAL:
@@ -79,7 +86,7 @@ public class MetadataUtils {
     }
   }
 
-  public static AbstractColumnMetadata fromView(MaterializedField field) {
+  public static ColumnMetadata fromView(MaterializedField field) {
     if (field.getType().getMinorType() == MinorType.MAP) {
       return new MapColumnMetadata(field, null);
     } else {
@@ -98,7 +105,7 @@ public class MetadataUtils {
   public static TupleSchema fromColumns(List<ColumnMetadata> columns) {
     TupleSchema tuple = new TupleSchema();
     for (ColumnMetadata column : columns) {
-      tuple.add((AbstractColumnMetadata) column);
+      tuple.add(column);
     }
     return tuple;
   }
@@ -149,11 +156,11 @@ public class MetadataUtils {
     }
   }
 
-  public static RepeatedListColumnMetadata newRepeatedList(String name, AbstractColumnMetadata child) {
+  public static RepeatedListColumnMetadata newRepeatedList(String name, ColumnMetadata child) {
     return new RepeatedListColumnMetadata(name, child);
   }
 
-  public static AbstractColumnMetadata newMapArray(String name, TupleMetadata schema) {
+  public static ColumnMetadata newMapArray(String name, TupleMetadata schema) {
     return new MapColumnMetadata(name, DataMode.REPEATED, (TupleSchema) schema);
   }
 
@@ -161,5 +168,39 @@ public class MetadataUtils {
       DataMode mode) {
     assert type != MinorType.MAP && type != MinorType.UNION && type != MinorType.LIST;
     return new PrimitiveColumnMetadata(name, type, mode);
+  }
+
+  public static PrimitiveColumnMetadata newScalar(String name, MajorType type) {
+    MinorType minorType = type.getMinorType();
+    assert minorType != MinorType.MAP && minorType != MinorType.UNION && minorType != MinorType.LIST;
+    return new PrimitiveColumnMetadata(name, type);
+  }
+
+  private static ColumnMetadata newDecimal(String name, MinorType type, DataMode mode,
+      int precision, int scale) {
+    if (precision < 0 ) {
+      throw new IllegalArgumentException("Precision cannot be negative : " +
+          precision);
+    }
+    if (scale < 0 ) {
+      throw new IllegalArgumentException("Scale cannot be negative : " +
+          scale);
+    }
+    int maxPrecision = Types.maxPrecision(type);
+    if (precision > maxPrecision) {
+      throw new IllegalArgumentException(String.format(
+          "%s(%d, %d) exceeds maximum suppored precision of %d",
+          type.toString(), precision, scale, maxPrecision));
+    }
+    if (scale > precision) {
+      throw new IllegalArgumentException(String.format(
+          "%s(%d, %d) scale exceeds precision",
+          type.toString(), precision, scale));
+    }
+    MaterializedField field = new ColumnBuilder(name, type)
+        .setMode(mode)
+        .setPrecisionAndScale(precision, scale)
+        .build();
+    return new PrimitiveColumnMetadata(field);
   }
 }

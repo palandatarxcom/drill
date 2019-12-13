@@ -21,13 +21,48 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.joda.time.format.DateTimeFormatter;
 
 /**
  * Metadata description of a column including names, types and structure
  * information.
  */
+public interface ColumnMetadata extends Propertied {
 
-public interface ColumnMetadata {
+  /**
+   * Predicted number of elements per array entry. Default is
+   * taken from the often hard-coded value of 10.
+   */
+  String EXPECTED_CARDINALITY_PROP = DRILL_PROP_PREFIX + "cardinality";
+
+  /**
+   * Default value represented as a string.
+   */
+  String DEFAULT_VALUE_PROP = DRILL_PROP_PREFIX + "default";
+
+  /**
+   * Expected (average) width for variable-width columns.
+   */
+  String EXPECTED_WIDTH_PROP = DRILL_PROP_PREFIX + "width";
+
+  /**
+   * Optional format to use when converting to/from string values.
+   */
+  String FORMAT_PROP = DRILL_PROP_PREFIX + "format";
+
+  /**
+   * Indicates if the column is projected. Used only for internal
+   * reader-provided schemas.
+   */
+  String PROJECTED_PROP = DRILL_PROP_PREFIX + "projected";
+
+  /**
+   * Indicates how to handle blanks. Must be one of the valid values defined
+   * in AbstractConvertFromString. Normally set on the converter by the plugin
+   * rather than by the user in the schema.
+   */
+  String BLANK_AS_PROP = DRILL_PROP_PREFIX + "blank-as";
 
   /**
    * Rough characterization of Drill types into metadata categories.
@@ -182,6 +217,47 @@ public interface ColumnMetadata {
 
   int expectedElementCount();
 
+  void setFormat(String value);
+
+  String format();
+
+  /**
+   * Returns the formatter to use for date/time values. Only valid for
+   * date/time columns.
+   *
+   * @return
+   */
+  DateTimeFormatter dateTimeFormatter();
+
+  /**
+   * Sets the default value property using the string-encoded form of the value.
+   * The default value is used for filling a vector when no real data is available.
+   *
+   * @param value the default value in String representation
+   */
+  void setDefaultValue(String value);
+
+  /**
+   * Returns the default value for this column in String literal representation.
+   *
+   * @return the default value in String literal representation, or null if no
+   * default value has been set
+   */
+  String defaultValue();
+
+  /**
+   * Returns the default value decoded into object form. This is the same as:
+   * <pre><code>decodeValue(defaultValue());
+   * </code></pre>
+   *
+   * @return the default value decode as an object that can be passed to
+   * the {@link ColumnWriter#setObject()} method.
+   */
+  Object decodeDefaultValue();
+
+  String valueToString(Object value);
+  Object valueFromString(String value);
+
   /**
    * Create an empty version of this column. If the column is a scalar,
    * produces a simple copy. If a map, produces a clone without child
@@ -203,4 +279,24 @@ public interface ColumnMetadata {
 
   int precision();
   int scale();
+
+  void bind(TupleMetadata parentTuple);
+
+  ColumnMetadata copy();
+
+  /**
+   * Converts type metadata into string representation
+   * accepted by the table schema parser.
+   *
+   * @return type metadata string representation
+   */
+  String typeString();
+
+  /**
+   * Converts column metadata into string representation
+   * accepted by the table schema parser.
+   *
+   * @return column metadata string representation
+   */
+  String columnString();
 }

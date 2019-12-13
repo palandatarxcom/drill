@@ -652,6 +652,8 @@ message ServerMeta {
     optional bool                       transaction_supported = 48;
     // UNION support
     repeated UnionSupport               union_support = 49;
+    // current schema
+    optional string                     current_schema = 50;
 }
 
 /*
@@ -676,4 +678,9 @@ message RunQuery {
    * to state on server side which is returned in response to CreatePreparedStatementReq.
    */
   optional PreparedStatementHandle prepared_statement_handle = 5;
+
+  /*
+   * Input for indicating the limit on a query's result set.
+   */
+  optional int32 autolimit_rowcount = 6;
 }

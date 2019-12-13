@@ -201,6 +201,25 @@ public class SchemaUtilites {
    * @return mutable schema, exception otherwise
    */
   public static AbstractSchema resolveToMutableDrillSchema(final SchemaPlus defaultSchema, List<String> schemaPath) {
+    return resolveToDrillSchemaInternal(defaultSchema, schemaPath, true);
+  }
+
+  /**
+   * Given reference to default schema in schema tree, search for schema with given <i>schemaPath</i>. Once a schema is
+   * found resolve it into a mutable <i>AbstractDrillSchema</i> instance. A {@link UserException} is throws when:
+   *   <li>No schema for given <i>schemaPath</i> is found.</li>
+   *   <li>Schema found for given <i>schemaPath</i> is a root schema.</li>
+   *
+   * @param defaultSchema
+   * @param schemaPath
+   * @return schema, if found. Otherwise, throws an {@link UserException}
+   */
+  public static AbstractSchema resolveToDrillSchema(final SchemaPlus defaultSchema, List<String> schemaPath) {
+    return resolveToDrillSchemaInternal(defaultSchema, schemaPath, false);
+  }
+
+  private static AbstractSchema resolveToDrillSchemaInternal (SchemaPlus defaultSchema, List<String> schemaPath,
+                                                              boolean checkMutable) {
     final SchemaPlus schema = findSchema(defaultSchema, schemaPath);
 
     if (schema == null) {
@@ -217,7 +236,7 @@ public class SchemaUtilites {
     final AbstractSchema drillSchema = unwrapAsDrillSchemaInstance(schema);
     if (!drillSchema.isMutable()) {
       throw UserException.validationError()
-          .message("Unable to create or drop tables/views. Schema [%s] is immutable.", getSchemaPath(schema))
+          .message("Unable to create or drop objects. Schema [%s] is immutable.", getSchemaPath(schema))
           .build(logger);
     }
 
@@ -288,6 +307,23 @@ public class SchemaUtilites {
           .message("Temporary workspace [%s] must be file-based, instance of " +
               "WorkspaceSchemaFactory.WorkspaceSchema", schema)
           .build(logger);
+    }
+  }
+
+  /**
+   * If table schema is not indicated in sql call, returns temporary workspace.
+   * If schema is indicated, resolves to mutable table schema.
+   *
+   * @param tableSchema table schema
+   * @param defaultSchema default schema
+   * @param config drill config
+   * @return resolved schema
+   */
+  public static AbstractSchema resolveToTemporarySchema(List<String> tableSchema, SchemaPlus defaultSchema, DrillConfig config) {
+    if (tableSchema.size() == 0) {
+      return SchemaUtilites.getTemporaryWorkspace(defaultSchema, config);
+    } else {
+      return SchemaUtilites.resolveToMutableDrillSchema(defaultSchema, tableSchema);
     }
   }
 

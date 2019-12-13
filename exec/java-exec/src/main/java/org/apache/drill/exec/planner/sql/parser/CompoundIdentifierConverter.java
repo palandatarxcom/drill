@@ -64,6 +64,7 @@ public class CompoundIdentifierConverter extends SqlShuttle {
     // Every element of the array corresponds to the item in the list
     // returned by getOperandList() method for concrete SqlCall implementation.
     REWRITE_RULES = ImmutableMap.<Class<? extends SqlCall>, RewriteType[]>builder()
+        .put(SqlAnalyzeTable.class, arrayOf(D, D, E, D))
         .put(SqlSelect.class, arrayOf(D, E, D, E, E, E, E, E, D, D))
         .put(SqlCreateTable.class, arrayOf(D, D, D, E, D, D))
         .put(SqlCreateView.class, arrayOf(D, E, E, D))
@@ -75,21 +76,29 @@ public class CompoundIdentifierConverter extends SqlShuttle {
         .put(SqlJoin.class, arrayOf(D, D, D, D, D, E))
         .put(SqlOrderBy.class, arrayOf(D, E, D, D))
         .put(SqlDropTable.class, arrayOf(D, D))
-        .put(SqlRefreshMetadata.class, arrayOf(D))
+        .put(SqlRefreshMetadata.class, arrayOf(D, D, E))
         .put(SqlSetOption.class, arrayOf(D, D, D))
         .put(SqlCreateFunction.class, arrayOf(D))
         .put(SqlDropFunction.class, arrayOf(D))
+        .put(SqlSchema.Create.class, arrayOf(D, D, D, D, D, D))
+        .put(SqlSchema.Drop.class, arrayOf(D, D))
+        .put(SqlSchema.Describe.class, arrayOf(D, D))
         .build();
   }
 
   private boolean enableComplex = true;
+  private boolean allowNoTableRefCompoundIdentifier = false;
+
+  public CompoundIdentifierConverter(boolean allowNoTableRefCompoundIdentifier) {
+    this.allowNoTableRefCompoundIdentifier = allowNoTableRefCompoundIdentifier;
+  }
 
   @Override
   public SqlNode visit(SqlIdentifier id) {
     if (id instanceof DrillCompoundIdentifier) {
       DrillCompoundIdentifier compoundIdentifier = (DrillCompoundIdentifier) id;
       if (enableComplex) {
-        return compoundIdentifier.getAsSqlNode();
+        return compoundIdentifier.getAsSqlNode(allowNoTableRefCompoundIdentifier);
       } else {
         return compoundIdentifier.getAsCompoundIdentifier();
       }

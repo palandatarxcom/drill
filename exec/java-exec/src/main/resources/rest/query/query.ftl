@@ -19,10 +19,8 @@
 -->
 <#include "*/generic.ftl">
 <#macro page_head>
-    <#if model?? && model>
-      <script src="/static/js/jquery.form.js"></script>
-      <script src="/static/js/querySubmission.js"></script>
-    </#if>
+  <script src="/static/js/jquery.form.js"></script>
+  <script src="/static/js/querySubmission.js"></script>
   <!-- Ace Libraries for Syntax Formatting -->
   <script src="/static/js/ace-code-editor/ace.js" type="text/javascript" charset="utf-8"></script>
   <!-- Disabled in favour of dynamic: script src="/static/js/ace-code-editor/mode-sql.js" type="text/javascript" charset="utf-8" -->
@@ -36,12 +34,16 @@
 <#macro page_body>
   <div class="page-header">
   </div>
-  <div id="message" class="alert alert-info alert-dismissable" style="font-family: Courier;">
+  <div id="message" class="alert alert-info alert-dismissable" style="font-family: courier,monospace;">
     <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
     Sample SQL query: <strong>SELECT * FROM cp.`employee.json` LIMIT 20</strong>
   </div>
 
-  <#if model?? && model>
+<#include "*/alertModals.ftl">
+
+<#include "*/runningQuery.ftl">
+
+  <#if model.isOnlyImpersonationEnabled()>
      <div class="form-group">
        <label for="userName">User Name</label>
        <input type="text" size="30" name="userName" id="userName" placeholder="User Name">
@@ -74,12 +76,13 @@
       <div style="display: inline-block"><label for="query">Query</label></div>
       <div style="display: inline-block; float:right; padding-right:5%"><b>Hint: </b>Use <div id="keyboardHint" style="display:inline-block; font-style:italic"></div> to submit</div>
       <div id="query-editor-format"></div>
-      <input class="form-control" type="hidden" id="query" name="query"/>
+      <input class="form-control" type="hidden" id="query" name="query" autofocus/>
     </div>
 
-    <button class="btn btn-default" type=<#if model?? && model>"button" onclick="doSubmitQueryWithUserName()"<#else>"submit"</#if>>
+    <button class="btn btn-default" type="button" onclick="<#if model.isOnlyImpersonationEnabled()>doSubmitQueryWithUserName()<#else>doSubmitQueryWithAutoLimit()</#if>">
       Submit
     </button>
+    <input type="checkbox" name="forceLimit" value="limit" <#if model.isAutoLimitEnabled()>checked</#if>> Limit results to <input type="text" id="autoLimit" name="autoLimit" min="0" value="${model.getDefaultRowsAutoLimited()?c}" size="6" pattern="[0-9]*"> rows <span class="glyphicon glyphicon-info-sign" title="Limits the number of records retrieved in the query. Ignored if query has a limit already" style="cursor:pointer"></span>
   </form>
 
   <script>
@@ -101,6 +104,7 @@
     editor.getSession().setUseSoftTabs(true);
     editor.setTheme("ace/theme/sqlserver");
     editor.$blockScrolling = "Infinity";
+    editor.focus();
     //CSS Formatting
     document.getElementById('query-editor-format').style.fontSize='13px';
     document.getElementById('query-editor-format').style.fontFamily='courier,monospace';
@@ -125,10 +129,10 @@
     document.getElementById('queryForm')
             .addEventListener('keydown', function(e) {
       if (!(e.keyCode == 13 && (e.metaKey || e.ctrlKey))) return;
-      if (e.target.form) doSubmitQueryWithUserName();
+      if (e.target.form) //Submit [Wrapped] Query 
+        <#if model.isOnlyImpersonationEnabled()>doSubmitQueryWithUserName()<#else>doSubmitQueryWithAutoLimit()</#if>;
     });
   </script>
-
 </#macro>
 
 <@page_html/>

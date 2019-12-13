@@ -21,20 +21,25 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata.StructureType;
+import org.apache.drill.exec.record.metadata.MapBuilder;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
+import org.apache.drill.exec.record.metadata.RepeatedListBuilder;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.record.metadata.UnionBuilder;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.test.DrillTest;
-import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 /**
  * The schema builder for tests has grown complex to handle maps, unions,
@@ -42,6 +47,7 @@ import org.junit.Test;
  * pieces correctly for the various nesting combinations.
  */
 
+@Category(RowSetTests.class)
 public class TestSchemaBuilder extends DrillTest {
 
   @Test
@@ -81,7 +87,7 @@ public class TestSchemaBuilder extends DrillTest {
 
     MaterializedField aField = MaterializedField.create("a",
         Types.optional(MinorType.VARCHAR));
-    AbstractColumnMetadata bCol = MetadataUtils.newScalar("b",
+    ColumnMetadata bCol = MetadataUtils.newScalar("b",
         MinorType.INT, DataMode.REQUIRED);
 
     SchemaBuilder builder = new SchemaBuilder()
@@ -312,11 +318,11 @@ public class TestSchemaBuilder extends DrillTest {
   @Test
   public void testDecimal() {
     TupleMetadata schema = new SchemaBuilder()
-        .addDecimal("a", MinorType.DECIMAL18, DataMode.OPTIONAL, 5, 2)
-        .addDecimal("b", MinorType.DECIMAL18, DataMode.REQUIRED, 6, 3)
-        .addDecimal("c", MinorType.DECIMAL18, DataMode.REPEATED, 7, 4)
+        .addNullable("a", MinorType.DECIMAL18, 5, 2)
+        .add("b", MinorType.DECIMAL18, 6, 3)
+        .addArray("c", MinorType.DECIMAL18, 7, 4)
         .addMap("m")
-          .addDecimal("d", MinorType.DECIMAL18, DataMode.OPTIONAL, 8, 1)
+          .addNullable("d", MinorType.DECIMAL18, 8, 1)
           .resumeSchema()
         .buildSchema();
 
@@ -341,6 +347,105 @@ public class TestSchemaBuilder extends DrillTest {
     assertEquals(DataMode.OPTIONAL, d.mode());
     assertEquals(8, d.precision());
     assertEquals(1, d.scale());
+  }
+
+  @Test
+  public void testVarDecimal() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addNullable("a", MinorType.VARDECIMAL, 5, 2)
+        .add("b", MinorType.VARDECIMAL, 6, 3)
+        .addArray("c", MinorType.VARDECIMAL, 7, 4)
+        .add("e", MinorType.VARDECIMAL)
+        .add("g", MinorType.VARDECIMAL, 38, 4)
+        .addMap("m")
+          .addNullable("d", MinorType.VARDECIMAL, 8, 1)
+          .add("f", MinorType.VARDECIMAL)
+          .resumeSchema()
+        .buildSchema();
+
+    // Use name methods, just for variety
+
+    ColumnMetadata a = schema.metadata("a");
+    assertEquals(MinorType.VARDECIMAL, a.type());
+    assertEquals(DataMode.OPTIONAL, a.mode());
+    assertEquals(5, a.precision());
+    assertEquals(2, a.scale());
+
+    ColumnMetadata b = schema.metadata("b");
+    assertEquals(MinorType.VARDECIMAL, b.type());
+    assertEquals(DataMode.REQUIRED, b.mode());
+    assertEquals(6, b.precision());
+    assertEquals(3, b.scale());
+
+    ColumnMetadata c = schema.metadata("c");
+    assertEquals(MinorType.VARDECIMAL, c.type());
+    assertEquals(DataMode.REPEATED, c.mode());
+    assertEquals(7, c.precision());
+    assertEquals(4, c.scale());
+
+    ColumnMetadata e = schema.metadata("e");
+    assertEquals(MinorType.VARDECIMAL, e.type());
+    assertEquals(DataMode.REQUIRED, e.mode());
+    assertEquals(38, e.precision());
+    assertEquals(0, e.scale());
+
+    ColumnMetadata g = schema.metadata("g");
+    assertEquals(MinorType.VARDECIMAL, g.type());
+    assertEquals(DataMode.REQUIRED, g.mode());
+    assertEquals(38, g.precision());
+    assertEquals(4, g.scale());
+
+    ColumnMetadata d = schema.metadata("m").mapSchema().metadata("d");
+    assertEquals(MinorType.VARDECIMAL, d.type());
+    assertEquals(DataMode.OPTIONAL, d.mode());
+    assertEquals(8, d.precision());
+    assertEquals(1, d.scale());
+
+    ColumnMetadata f = schema.metadata("m").mapSchema().metadata("f");
+    assertEquals(MinorType.VARDECIMAL, f.type());
+    assertEquals(DataMode.REQUIRED, f.mode());
+    assertEquals(38, f.precision());
+    assertEquals(0, f.scale());
+  }
+
+  @Test
+  public void testVarDecimalOverflow() {
+
+    try {
+      new SchemaBuilder()
+        .add("a", MinorType.VARDECIMAL, 39, 0)
+        .buildSchema();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+
+    try {
+      new SchemaBuilder()
+        .add("a", MinorType.VARDECIMAL, -1, 0)
+        .buildSchema();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+
+    try {
+      new SchemaBuilder()
+        .add("a", MinorType.VARDECIMAL, 38, -1)
+        .buildSchema();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+
+    try {
+      new SchemaBuilder()
+        .add("a", MinorType.VARDECIMAL, 5, 6)
+        .buildSchema();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
   }
 
   /**
@@ -596,4 +701,82 @@ public class TestSchemaBuilder extends DrillTest {
     assertEquals(MinorType.VARCHAR, child.type());
     assertEquals(DataMode.REPEATED, child.mode());
   }
+
+  @Test
+  public void testStandaloneMapBuilder() {
+    ColumnMetadata columnMetadata= new MapBuilder("m1", DataMode.OPTIONAL)
+      .addNullable("b", MinorType.BIGINT)
+      .addMap("m2")
+      .addNullable("v", MinorType.VARCHAR)
+      .resumeMap()
+      .buildColumn();
+
+    assertTrue(columnMetadata.isMap());
+    assertTrue(columnMetadata.isNullable());
+    assertEquals("m1", columnMetadata.name());
+
+    TupleMetadata schema = columnMetadata.mapSchema();
+
+    ColumnMetadata col0 = schema.metadata(0);
+    assertEquals("b", col0.name());
+    assertEquals(MinorType.BIGINT, col0.type());
+    assertTrue(col0.isNullable());
+
+    ColumnMetadata col1 = schema.metadata(1);
+    assertEquals("m2", col1.name());
+    assertTrue(col1.isMap());
+    assertFalse(col1.isNullable());
+
+    ColumnMetadata child = col1.mapSchema().metadata(0);
+    assertEquals("v", child.name());
+    assertEquals(MinorType.VARCHAR, child.type());
+    assertTrue(child.isNullable());
+  }
+
+  @Test
+  public void testStandaloneRepeatedListBuilder() {
+    ColumnMetadata columnMetadata = new RepeatedListBuilder("l")
+      .addMapArray()
+      .addNullable("v", MinorType.VARCHAR)
+      .add("i", MinorType.INT)
+      .resumeList()
+      .buildColumn();
+
+    assertTrue(columnMetadata.isArray());
+    assertEquals("l", columnMetadata.name());
+    assertEquals(MinorType.LIST, columnMetadata.type());
+
+    ColumnMetadata child = columnMetadata.childSchema();
+    assertEquals("l", child.name());
+    assertTrue(child.isArray());
+    assertTrue(child.isMap());
+
+    TupleMetadata mapSchema = child.mapSchema();
+
+    ColumnMetadata col0 = mapSchema.metadata(0);
+    assertEquals("v", col0.name());
+    assertEquals(MinorType.VARCHAR, col0.type());
+    assertTrue(col0.isNullable());
+
+    ColumnMetadata col1 = mapSchema.metadata(1);
+    assertEquals("i", col1.name());
+    assertEquals(MinorType.INT, col1.type());
+    assertFalse(col1.isNullable());
+  }
+
+  @Test
+  public void testStandaloneUnionBuilder() {
+    ColumnMetadata columnMetadata = new UnionBuilder("u", MinorType.VARCHAR)
+      .addType(MinorType.INT)
+      .addType(MinorType.VARCHAR)
+      .buildColumn();
+
+    assertEquals("u", columnMetadata.name());
+    assertTrue(columnMetadata.isVariant());
+
+    VariantMetadata variantMetadata = columnMetadata.variantSchema();
+    assertTrue(variantMetadata.hasType(MinorType.INT));
+    assertTrue(variantMetadata.hasType(MinorType.VARCHAR));
+  }
+
 }

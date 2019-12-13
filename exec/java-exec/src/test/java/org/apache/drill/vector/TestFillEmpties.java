@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import org.apache.drill.categories.VectorTest;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.NullableVarCharVector;
@@ -29,7 +30,6 @@ import org.apache.drill.exec.vector.RepeatedVarCharVector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.junit.Test;
 
 import io.netty.buffer.DrillBuf;
@@ -41,7 +41,6 @@ public class TestFillEmpties extends SubOperatorTest {
 
   @Test
   public void testNullableVarChar() {
-    @SuppressWarnings("resource")
     NullableVarCharVector vector = new NullableVarCharVector(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.OPTIONAL), fixture.allocator());
     vector.allocateNew( );
 
@@ -61,7 +60,6 @@ public class TestFillEmpties extends SubOperatorTest {
 
   @Test
   public void testVarChar() {
-    @SuppressWarnings("resource")
     VarCharVector vector = new VarCharVector(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED), fixture.allocator());
     vector.allocateNew( );
 
@@ -85,7 +83,6 @@ public class TestFillEmpties extends SubOperatorTest {
 
   @Test
   public void testInt() {
-    @SuppressWarnings("resource")
     IntVector vector = new IntVector(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED), fixture.allocator());
     vector.allocateNew( );
 
@@ -102,7 +99,6 @@ public class TestFillEmpties extends SubOperatorTest {
 
   @Test
   public void testRepeatedVarChar() {
-    @SuppressWarnings("resource")
     RepeatedVarCharVector vector = new RepeatedVarCharVector(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REPEATED), fixture.allocator());
     vector.allocateNew( );
 

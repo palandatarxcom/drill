@@ -17,19 +17,7 @@
  */
 package org.apache.drill.exec.server;
 
-import java.io.IOException;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.tools.ToolProvider;
-
+import org.apache.curator.framework.api.ACLProvider;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.StackTrace;
 import org.apache.drill.common.concurrent.ExtendedLatch;
@@ -40,9 +28,11 @@ import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.coord.ClusterCoordinator;
 import org.apache.drill.exec.coord.ClusterCoordinator.RegistrationHandle;
+import org.apache.drill.exec.coord.zk.ZKACLProviderFactory;
 import org.apache.drill.exec.coord.zk.ZKClusterCoordinator;
 import org.apache.drill.exec.exception.DrillbitStartupException;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
+import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint.State;
 import org.apache.drill.exec.server.DrillbitStateManager.DrillbitState;
 import org.apache.drill.exec.server.options.OptionDefinition;
 import org.apache.drill.exec.server.options.OptionValue;
@@ -51,19 +41,29 @@ import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.server.rest.WebServer;
 import org.apache.drill.exec.service.ServiceEngine;
 import org.apache.drill.exec.store.StoragePluginRegistry;
-import org.apache.drill.exec.store.sys.store.provider.CachingPersistentStoreProvider;
-import org.apache.drill.exec.store.sys.store.provider.InMemoryStoreProvider;
 import org.apache.drill.exec.store.sys.PersistentStoreProvider;
 import org.apache.drill.exec.store.sys.PersistentStoreRegistry;
+import org.apache.drill.exec.store.sys.store.provider.CachingPersistentStoreProvider;
+import org.apache.drill.exec.store.sys.store.provider.InMemoryStoreProvider;
 import org.apache.drill.exec.store.sys.store.provider.LocalPersistentStoreProvider;
 import org.apache.drill.exec.util.GuavaPatcher;
 import org.apache.drill.exec.work.WorkManager;
-import org.apache.zookeeper.Environment;
-
-import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint.State;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
+import org.apache.zookeeper.Environment;
 import org.slf4j.bridge.SLF4JBridgeHandler;
+
+import javax.tools.ToolProvider;
+import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Starts, tracks and stops all the required services for a Drillbit daemon to work.
@@ -99,6 +99,7 @@ public class Drillbit implements AutoCloseable {
   private boolean quiescentMode;
   private boolean forcefulShutdown = false;
   private GracefulShutdownThread gracefulShutdownThread;
+  private Thread shutdownHook;
   private boolean interruptPollShutdown = true;
 
   public void setQuiescentMode(boolean quiescentMode) {
@@ -139,7 +140,6 @@ public class Drillbit implements AutoCloseable {
     this(config, SystemOptionManager.createDefaultOptionDefinitions(), serviceSet, classpathScan);
   }
 
-  @SuppressWarnings("resource")
   @VisibleForTesting
   public Drillbit(
     final DrillConfig config,
@@ -167,7 +167,11 @@ public class Drillbit implements AutoCloseable {
       coord = serviceSet.getCoordinator();
       storeProvider = new CachingPersistentStoreProvider(new LocalPersistentStoreProvider(config));
     } else {
-      coord = new ZKClusterCoordinator(config, context);
+      String clusterId = config.getString(ExecConstants.SERVICE_NAME);
+      String zkRoot = config.getString(ExecConstants.ZK_ROOT);
+      String drillClusterPath = "/" + zkRoot + "/" +  clusterId;
+      ACLProvider aclProvider = ZKACLProviderFactory.getACLProvider(config, drillClusterPath, context);
+      coord = new ZKClusterCoordinator(config, aclProvider);
       storeProvider = new PersistentStoreRegistry<ClusterCoordinator>(this.coord, config).newPStoreProvider();
     }
 
@@ -205,7 +209,6 @@ public class Drillbit implements AutoCloseable {
     }
     DrillbitEndpoint md = engine.start();
     manager.start(md, engine.getController(), engine.getDataConnectionCreator(), coord, storeProvider, profileStoreProvider);
-    @SuppressWarnings("resource")
     final DrillbitContext drillbitContext = manager.getContext();
     storageRegistry = drillbitContext.getStorage();
     storageRegistry.init();
@@ -222,7 +225,8 @@ public class Drillbit implements AutoCloseable {
     // Must start the RM after the above since it needs to read system options.
     drillbitContext.startRM();
 
-    Runtime.getRuntime().addShutdownHook(new ShutdownThread(this, new StackTrace()));
+    shutdownHook = new ShutdownThread(this, new StackTrace());
+    Runtime.getRuntime().addShutdownHook(shutdownHook);
     gracefulShutdownThread.start();
     logger.info("Startup completed ({} ms).", w.elapsed(TimeUnit.MILLISECONDS));
   }
@@ -258,6 +262,17 @@ public class Drillbit implements AutoCloseable {
     }
     final Stopwatch w = Stopwatch.createStarted();
     logger.debug("Shutdown begun.");
+    // We don't really want for Drillbits to pile up in memory, so the hook should be removed
+    // It might be better to use PhantomReferences to cleanup as soon as Drillbit becomes
+    // unreachable, however current approach seems to be good enough.
+    Thread shutdownHook = this.shutdownHook;
+    if (shutdownHook != null && Thread.currentThread() != shutdownHook) {
+      try {
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+      } catch (IllegalArgumentException e) {
+        // If shutdown is in progress, just ignore the removal
+      }
+    }
     updateState(State.QUIESCENT);
     stateManager.setState(DrillbitState.GRACE);
     waitForGracePeriod();
@@ -317,7 +332,6 @@ public class Drillbit implements AutoCloseable {
       return;
     }
 
-    @SuppressWarnings("resource")
     final SystemOptionManager optionManager = getContext().getOptionManager();
 
     // parse out the properties, validate, and then set them

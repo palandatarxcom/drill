@@ -17,10 +17,11 @@
  */
 package org.apache.drill.exec.store.jdbc;
 
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 
+import java.util.List;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.adapter.jdbc.JdbcImplementor;
 import org.apache.calcite.plan.ConventionTraitDef;
@@ -33,6 +34,7 @@ import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.sql.SqlDialect;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.planner.physical.PhysicalPlanCreator;
 import org.apache.drill.exec.planner.physical.Prel;
@@ -91,8 +93,12 @@ public class JdbcPrel extends AbstractRelNode implements Prel {
   }
 
   @Override
-  public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) throws IOException {
-    JdbcGroupScan output = new JdbcGroupScan(sql, convention.getPlugin(), rows);
+  public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) {
+    List<SchemaPath> columns = new ArrayList<>();
+    for (String col : rowType.getFieldNames()) {
+      columns.add(SchemaPath.getSimplePath(col));
+    }
+    JdbcGroupScan output = new JdbcGroupScan(sql, columns, convention.getPlugin(), rows);
     return creator.addMetadata(this, output);
   }
 

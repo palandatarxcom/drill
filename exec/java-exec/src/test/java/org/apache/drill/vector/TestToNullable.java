@@ -24,22 +24,22 @@ import static org.junit.Assert.assertTrue;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.NullableIntVector;
 import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.schema.SchemaBuilder;
 import org.bouncycastle.util.Arrays;
 import org.junit.Test;
 
 public class TestToNullable extends SubOperatorTest {
 
-  @SuppressWarnings("resource")
   @Test
   public void testFixedWidth() {
     MaterializedField intSchema =
         SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+    @SuppressWarnings("resource")
     IntVector intVector = new IntVector(intSchema, fixture.allocator());
     IntVector.Mutator intMutator = intVector.getMutator();
     intVector.allocateNew(100);
@@ -68,11 +68,11 @@ public class TestToNullable extends SubOperatorTest {
     // If it is not, the test will fail with a memory leak error.
   }
 
-  @SuppressWarnings("resource")
   @Test
   public void testNullable() {
     MaterializedField nullableIntSchema =
         SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.OPTIONAL);
+    @SuppressWarnings("resource")
     NullableIntVector sourceVector = new NullableIntVector(nullableIntSchema, fixture.allocator());
     NullableIntVector.Mutator sourceMutator = sourceVector.getMutator();
     sourceVector.allocateNew(100);
@@ -99,11 +99,11 @@ public class TestToNullable extends SubOperatorTest {
     // If it is not, the test will fail with a memory leak error.
   }
 
-  @SuppressWarnings("resource")
   @Test
   public void testVariableWidth() {
     MaterializedField nonNullableSchema =
         SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED);
+    @SuppressWarnings("resource")
     VarCharVector nonNullableVector = new VarCharVector(nonNullableSchema, fixture.allocator());
     VarCharVector.Mutator mutator = nonNullableVector.getMutator();
     nonNullableVector.allocateNew(100, 20);

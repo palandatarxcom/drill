@@ -23,18 +23,17 @@
 <script src="/static/js/dagre-d3.min.js"></script>
 <script src="/static/js/graph.js"></script>
 <script src="/static/js/jquery.dataTables-1.10.16.min.js"></script>
-<#if model.isOnlyImpersonationEnabled()>
-    <script src="/static/js/jquery.form.js"></script>
-    <script src="/static/js/querySubmission.js"></script>
-</#if>
-  <!-- Ace Libraries for Syntax Formatting -->
-  <script src="/static/js/ace-code-editor/ace.js" type="text/javascript" charset="utf-8"></script>
-  <!-- Disabled in favour of dynamic: script src="/static/js/ace-code-editor/mode-sql.js" type="text/javascript" charset="utf-8" -->
-  <script src="/dynamic/mode-sql.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/static/js/ace-code-editor/ext-language_tools.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/static/js/ace-code-editor/theme-sqlserver.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/static/js/ace-code-editor/snippets/sql.js" type="text/javascript" charset="utf-8"></script>
-  <script src="/static/js/ace-code-editor/mode-snippets.js" type="text/javascript" charset="utf-8"></script>
+<script src="/static/js/jquery.form.js"></script>
+<script src="/static/js/querySubmission.js"></script>
+<!-- Ace Libraries for Syntax Formatting -->
+<script src="/static/js/ace-code-editor/ace.js" type="text/javascript" charset="utf-8"></script>
+<!-- Disabled in favour of dynamic: script src="/static/js/ace-code-editor/mode-sql.js" type="text/javascript" charset="utf-8" -->
+<script src="/dynamic/mode-sql.js" type="text/javascript" charset="utf-8"></script>
+<script src="/static/js/ace-code-editor/ext-language_tools.js" type="text/javascript" charset="utf-8"></script>
+<script src="/static/js/ace-code-editor/theme-sqlserver.js" type="text/javascript" charset="utf-8"></script>
+<script src="/static/js/ace-code-editor/snippets/sql.js" type="text/javascript" charset="utf-8"></script>
+<script src="/static/js/ace-code-editor/mode-snippets.js" type="text/javascript" charset="utf-8"></script>
+<link href="/static/css/drill-dataTables.sortable.css" rel="stylesheet">
 
 <script>
     var globalconfig = {
@@ -48,8 +47,42 @@
         "lengthChange": false,
         "paging": false,
         "info": false
+      });
+      //Enable Warnings by making it visible
+      checkForWarnings();
+    });
+
+    //Check for Warnings
+    function checkForWarnings() {
+      //No Progress Warning
+      let noProgressFragmentCount = document.querySelectorAll('td[class=no-progress-tag]').length;
+      let majorFragmentCount = document.querySelectorAll('#fragment-overview table tbody tr').length;
+      if (majorFragmentCount > 0) { // For fast-failed queries majorFragmentCount=0
+        toggleWarning("noProgressWarning", majorFragmentCount, noProgressFragmentCount);
       }
-    );} );
+
+      //Spill To Disk Warnings
+      let spillCount = document.querySelectorAll('td[class=spill-tag]').length;
+      toggleWarning("spillToDiskWarning", true, (spillCount > 0));
+
+      //Slow Scan Warnings
+      let longScanWaitCount = document.querySelectorAll('td[class=scan-wait-tag]').length;
+      toggleWarning("longScanWaitWarning", true, (longScanWaitCount > 0));
+    }
+
+    //Show Warnings
+    function toggleWarning(warningElemId, expectedVal, actualVal) {
+        if (expectedVal == actualVal) {
+            document.getElementById(warningElemId).style.display="block";
+        } else {
+            closeWarning(warningElemId);
+        }
+    }
+
+    //Close Warning
+    function closeWarning(warningElemId) {
+        document.getElementById(warningElemId).style.display="none";
+    }
 
     //Close the cancellation status popup
     function refreshStatus() {
@@ -67,19 +100,6 @@
     };
 
 </script>
-<style>
-/* DataTables Sorting: inherited via sortable class */
-table.sortable thead .sorting,.sorting_asc,.sorting_desc {
-  background-repeat: no-repeat;
-  background-position: center right;
-  cursor: pointer;
-}
-/* Sorting Symbols */
-table.sortable thead .sorting { background-image: url("/static/img/black-unsorted.gif"); }
-table.sortable thead .sorting_asc { background-image: url("/static/img/black-asc.gif"); }
-table.sortable thead .sorting_desc { background-image: url("/static/img/black-desc.gif"); }
-</style>
-
 </#macro>
 
 <#macro page_body>
@@ -96,8 +116,16 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
     </#if>
   </ul>
   <div id="query-content" class="tab-content">
-    <div id="query-query" class="tab-pane">
-      <p><pre id="query-text" name="query-text"  style="background-color: #f5f5f5;">${model.getProfile().query}</pre></p>
+    <div id="query-query" class="tab-pane" style="background-color: #ffffff">
+      <p><pre id="query-text" name="query-text"  style="background-color: #f5f5f5; font-family:courier,monospace">${model.getProfile().query}</pre></p>
+      <#if model.hasAutoLimit()>
+          <div name="autoLimitWarning" style="cursor:help" class="panel panel-warning" title="WebUI Queries allow restricting the number of rows returned to avoid the server to hold excessive number of results rows in memory.&#10;This helps maintain server stability with faster response if the entire resultset will not be visualized in the browser">
+            <div class="panel-heading">
+            <span class="glyphicon glyphicon-pushpin" style="font-size:125%"></span>
+            <b>WARNING:</b> Query result was <b>automatically</b> limited to <span style="font-style:italic;font-weight:bold">${model.getAutoLimit()} rows</span>
+            </div>
+          </div>
+      </#if>
     </div>
     <div id="query-physical" class="tab-pane">
       <p><pre>${model.profile.plan}</pre></p>
@@ -144,11 +172,18 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
               </label>
             </div>
             </div>
-            <button class="btn btn-default" type=<#if model.isOnlyImpersonationEnabled()>"button" onclick="doSubmitQueryWithUserName()"<#else>"submit"</#if>>
+            <div>
+              <button class="btn btn-default" type="button" id="rerunButton" onclick="<#if model.isOnlyImpersonationEnabled()>doSubmitQueryWithUserName()<#else>doSubmitQueryWithAutoLimit()</#if>">
             Re-run query
-            </button>
+              </button>
+              <input type="checkbox" name="forceLimit" value="limit" <#if model.hasAutoLimit()>checked</#if>> Limit results to <input type="text" id="autoLimit" name="autoLimit" min="0" value="<#if model.hasAutoLimit()>${model.getAutoLimit()?c}<#else>${model.getDefaultAutoLimit()?c}</#if>" size="6" pattern="[0-9]*"> rows <span class="glyphicon glyphicon-info-sign" title="Limits the number of records retrieved in the query. Ignored if query has a limit already" style="cursor:pointer"></span>
+            </div>
           </form>
       </p>
+
+<#include "*/alertModals.ftl">
+<#include "*/runningQuery.ftl">
+
       <p>
       <form action="/profiles/cancel/${model.queryId}" method="GET">
         <div class="form-group">
@@ -156,6 +191,7 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
         </div>
       </form>
         </p>
+       <#include "*/runningQuery.ftl">
     </div>
     <#if model.hasError()>
       <div id="query-error" class="tab-pane fade">
@@ -211,7 +247,7 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
   </div>
   </#if>
   </h3>
-  
+
   <div class="panel-group" id="query-profile-accordion">
     <div class="panel panel-default">
       <div class="panel-heading">
@@ -325,26 +361,31 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
       <div id="fragment-overview" class="panel-collapse collapse">
         <div class="panel-body">
           <svg id="fragment-overview-canvas" class="center-block"></svg>
+          <div id="noProgressWarning" style="display:none;cursor:help" class="panel panel-warning">
+            <div class="panel-heading" title="Check if any of the Drillbits are waiting for data from a SCAN operator, or might actually be hung with its VM thread being busy." style="cursor:pointer">
+            <span class="glyphicon glyphicon-alert" style="font-size:125%">&#xe209;</span> <b>WARNING:</b> No fragments have made any progress in the last <b>${model.getNoProgressWarningThreshold()}</b> seconds. (See <span style="font-style:italic;font-weight:bold">Last Progress</span> below)
+            </div>
+          </div>
           ${model.getFragmentsOverview()?no_esc}
         </div>
       </div>
-    </div>
-    <#list model.getFragmentProfiles() as frag>
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h4 class="panel-title">
-          <a data-toggle="collapse" href="#${frag.getId()}">
-            ${frag.getDisplayName()}
-          </a>
-        </h4>
-      </div>
-      <div id="${frag.getId()}" class="panel-collapse collapse">
-        <div class="panel-body">
-          ${frag.getContent()?no_esc}
+      <#list model.getFragmentProfiles() as frag>
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h4 class="panel-title">
+            <a data-toggle="collapse" href="#${frag.getId()}">
+              ${frag.getDisplayName()}
+            </a>
+          </h4>
+        </div>
+        <div id="${frag.getId()}" class="panel-collapse collapse">
+          <div class="panel-body">
+            ${frag.getContent()?no_esc}
+          </div>
         </div>
       </div>
+      </#list>
     </div>
-    </#list>
   </div>
 
   <div class="page-header"></div>
@@ -361,6 +402,25 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
       </div>
       <div id="operator-overview" class="panel-collapse collapse">
         <div class="panel-body">
+      <#if model.hasAutoLimit()>
+          <div name="autoLimitWarning" style="cursor:help" class="panel panel-warning" title="WebUI Queries allow restricting the number of rows returned to avoid the server to hold excessive number of results rows in memory.&#10;This helps maintain server stability with faster response if the entire resultset will not be visualized in the browser">
+            <div class="panel-heading">
+            <span class="glyphicon glyphicon-pushpin" style="font-size:125%"></span>
+            <b>WARNING:</b> Query result was <b>automatically</b> limited to <span style="font-style:italic;font-weight:bold">${model.getAutoLimit()} rows</span>
+            </div>
+          </div>
+      </#if>
+          <div id="spillToDiskWarning" style="display:none;cursor:help" class="panel panel-warning" title="Spills occur because a buffered operator didn't get enough memory to hold data in memory. Increase the memory or ensure that number of spills &lt; 2">
+            <div class="panel-heading"><span class="glyphicon glyphicon-alert" style="font-size:125%">&#xe209;</span> <b>WARNING:</b> Some operators have data spilled to disk. This will result in performance loss. (See <span style="font-style:italic;font-weight:bold">Avg Peak Memory</span> and <span style="font-style:italic;font-weight:bold">Max Peak Memory</span> below)
+            <button type="button" class="close" onclick="closeWarning('spillToDiskWarning')" style="font-size:180%">&times;</button>
+            </div>
+          </div>
+          <div id="longScanWaitWarning" style="display:none;cursor:help" class="panel panel-warning">
+            <div class="panel-heading" title="Check if any of the Drillbits are waiting for data from a SCAN operator, or might actually be hung with its VM thread being busy." style="cursor:pointer">
+            <span class="glyphicon glyphicon-alert" style="font-size:125%">&#xe209;</span> <b>WARNING:</b> Some of the SCAN operators spent more time waiting for the data than processing it. (See <span style="font-style:italic;font-weight:bold">Avg Wait Time</span> as compared to <span style="font-style:italic;font-weight:bold">Average Process Time</span> for the <b>SCAN</b> operators below)
+            <button type="button" class="close" onclick="closeWarning('longScanWaitWarning')" style="font-size:180%">&times;</button>
+            </div>
+          </div>
           ${model.getOperatorsOverview()?no_esc}
         </div>
       </div>
@@ -413,13 +473,32 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
     <script>
     //Inject Spilled Tags
     $(window).on('load', function () {
-      var spillLabel = document.getElementsByClassName("spill-tag");
-      var i;
-      for (i = 0; i < spillLabel.length; i++) {
-        var content = spillLabel[i].innerHTML;
-        spillLabel[i].innerHTML = "<span class=\"glyphicon glyphicon-download-alt\">&nbsp;</span>"+content;
-      }
+      injectIconByClass("spill-tag","glyphicon-download-alt");
+      injectIconByClass("time-skew-tag","glyphicon-time");
+      injectSlowScanIcon();
     });
+
+    //Inject Glyphicon by Class tag
+    function injectIconByClass(tagLabel, tagIcon) {
+        //Inject Spill icons
+        var tagElemList = document.getElementsByClassName(tagLabel);
+        var i;
+        for (i = 0; i < tagElemList.length; i++) {
+            var content = tagElemList[i].innerHTML;
+            tagElemList[i].innerHTML = "<span class=\"glyphicon "+tagIcon+"\">&nbsp;</span>"+content;
+        }
+    }
+
+    //Inject PNG icon for slow
+    function injectSlowScanIcon() {
+        //Inject Spill icons
+        var tagElemList = document.getElementsByClassName("scan-wait-tag");
+        var i;
+        for (i = 0; i < tagElemList.length; i++) {
+            var content = tagElemList[i].innerHTML;
+            tagElemList[i].innerHTML = "<img src='/static/img/turtle.png' alt='slow'> "+content;
+        }
+    }
 
     //Configuration for Query Viewer in Profile
     ace.require("ace/ext/language_tools");
@@ -437,11 +516,10 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
     viewer.setTheme("ace/theme/sqlserver");
     //CSS Formatting
     document.getElementById('query-query').style.fontSize='13px';
-    document.getElementById('query-query').style.fontFamily='courier';
+    document.getElementById('query-query').style.fontFamily='courier,monospace';
     document.getElementById('query-query').style.lineHeight='1.5';
     document.getElementById('query-query').style.width='98%';
     document.getElementById('query-query').style.margin='auto';
-    document.getElementById('query-query').style.backgroundColor='#f5f5f5';
     viewer.resize();
     viewer.setReadOnly(true);
     viewer.setOptions({
@@ -474,7 +552,7 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
     editor.$blockScrolling = "Infinity";
     //CSS Formatting
     document.getElementById('query-editor').style.fontSize='13px';
-    document.getElementById('query-editor').style.fontFamily='courier';
+    document.getElementById('query-editor').style.fontFamily='courier,monospace';
     document.getElementById('query-editor').style.lineHeight='1.5';
     document.getElementById('query-editor').style.width='98%';
     document.getElementById('query-editor').style.margin='auto';
@@ -506,7 +584,8 @@ table.sortable thead .sorting_desc { background-image: url("/static/img/black-de
     document.getElementById('queryForm')
             .addEventListener('keydown', function(e) {
       if (!(e.keyCode == 13 && (e.metaKey || e.ctrlKey))) return;
-      if (e.target.form) doSubmitQueryWithUserName();
+      if (e.target.form) 
+        <#if model.isOnlyImpersonationEnabled()>doSubmitQueryWithUserName()<#else>doSubmitQueryWithAutoLimit()</#if>;
     });
     </script>
 

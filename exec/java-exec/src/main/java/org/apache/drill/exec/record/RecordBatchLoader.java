@@ -36,6 +36,7 @@ import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.AllocationHelper;
+import org.apache.drill.exec.vector.UntypedNullVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,7 +75,6 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
    * @throws SchemaChangeException
    *   TODO:  Clean:  DRILL-2933  load(...) never actually throws SchemaChangeException.
    */
-  @SuppressWarnings("resource")
   public boolean load(RecordBatchDef def, DrillBuf buf) throws SchemaChangeException {
     if (logger.isTraceEnabled()) {
       logger.trace("Loading record batch with def {} and data {}", def, buf);
@@ -128,6 +128,11 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
 
         // Load the vector.
         if (buf == null) {
+          // Buffers for untyped null vectors are always null and for the case
+          // field value alone is sufficient to load the vector
+          if (vector instanceof UntypedNullVector) {
+            vector.load(field, null);
+          }
           // Schema only
         } else if (field.getValueCount() == 0) {
           AllocationHelper.allocate(vector, 0, 0, 0);

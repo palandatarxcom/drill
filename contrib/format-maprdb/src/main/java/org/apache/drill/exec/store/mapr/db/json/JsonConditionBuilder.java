@@ -74,7 +74,12 @@ public class JsonConditionBuilder extends AbstractExprVisitor<JsonScanSpec, Void
     ImmutableList<LogicalExpression> args = call.args;
 
     if (CompareFunctionsProcessor.isCompareFunction(functionName)) {
-      CompareFunctionsProcessor processor = CompareFunctionsProcessor.process(call);
+      CompareFunctionsProcessor processor;
+      if (groupScan.getFormatPlugin().getConfig().isReadTimestampWithZoneOffset()) {
+        processor = CompareFunctionsProcessor.processWithTimeZoneOffset(call);
+      } else {
+        processor = CompareFunctionsProcessor.process(call);
+      }
       if (processor.isSuccess()) {
         nodeScanSpec = createJsonScanSpec(call, processor);
       }
@@ -207,11 +212,15 @@ public class JsonConditionBuilder extends AbstractExprVisitor<JsonScanSpec, Void
       break;
 
     case "isnull":
-      cond = MapRDBImpl.newCondition().notExists(fieldPath);
+      // 'field is null' should be transformed to 'field not exists OR typeof(field) = NULL'
+      QueryCondition orCond = MapRDBImpl.newCondition().or();
+      cond = orCond.notExists(fieldPath).typeOf(fieldPath, Value.Type.NULL).close();
       break;
 
     case "isnotnull":
-      cond = MapRDBImpl.newCondition().exists(fieldPath);
+      // 'field is not null should be transformed to 'field exists AND typeof(field) != NULL'
+      QueryCondition andCond = MapRDBImpl.newCondition().and();
+      cond = andCond.exists(fieldPath).notTypeOf(fieldPath, Value.Type.NULL).close();
       break;
 
     case "istrue":

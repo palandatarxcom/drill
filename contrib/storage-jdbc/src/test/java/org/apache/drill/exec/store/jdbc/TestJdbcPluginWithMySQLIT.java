@@ -17,24 +17,103 @@
  */
 package org.apache.drill.exec.store.jdbc;
 
+import com.wix.mysql.EmbeddedMysql;
+import com.wix.mysql.ScriptResolver;
+import com.wix.mysql.config.MysqldConfig;
+import com.wix.mysql.config.SchemaConfig;
+import com.wix.mysql.distribution.Version;
 import org.apache.drill.categories.JdbcStorageTest;
 import org.apache.drill.exec.expr.fn.impl.DateUtility;
-import org.apache.drill.PlanTestBase;
-
+import org.apache.drill.exec.store.StoragePluginRegistryImpl;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.QueryTestUtil;
+import org.joda.time.DateTimeZone;
+import org.junit.AfterClass;
 import org.junit.Assume;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import java.math.BigDecimal;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 
 /**
  * JDBC storage plugin tests against MySQL.
  * Note: it requires libaio.so library in the system
  */
 @Category(JdbcStorageTest.class)
-public class TestJdbcPluginWithMySQLIT extends PlanTestBase {
+public class TestJdbcPluginWithMySQLIT extends ClusterTest {
+
+  private static EmbeddedMysql mysqld;
+
+  @BeforeClass
+  public static void initMysql() throws Exception {
+    String mysqlPluginName = "mysql";
+    String mysqlDBName = "drill_mysql_test";
+    int mysqlPort = QueryTestUtil.getFreePortNumber(2215, 300);
+
+    MysqldConfig config = MysqldConfig.aMysqldConfig(Version.v5_6_21)
+        .withPort(mysqlPort)
+        .withUser("mysqlUser", "mysqlPass")
+        .withTimeZone(DateTimeZone.UTC.toTimeZone())
+        .build();
+
+    SchemaConfig.Builder schemaConfig = SchemaConfig.aSchemaConfig(mysqlDBName)
+        .withScripts(ScriptResolver.classPathScript("mysql-test-data.sql"));
+
+    String osName = System.getProperty("os.name").toLowerCase();
+    if (osName.startsWith("linux")) {
+      schemaConfig.withScripts(ScriptResolver.classPathScript("mysql-test-data-linux.sql"));
+    }
+
+    mysqld = EmbeddedMysql.anEmbeddedMysql(config)
+        .addSchema(schemaConfig.build())
+        .start();
+
+    startCluster(ClusterFixture.builder(dirTestWatcher));
+
+    StoragePluginRegistryImpl pluginRegistry = (StoragePluginRegistryImpl) cluster.drillbit().getContext().getStorage();
+
+    JdbcStorageConfig jdbcStorageConfig = new JdbcStorageConfig(
+        "com.mysql.cj.jdbc.Driver",
+        String.format("jdbc:mysql://localhost:%s/%s?useJDBCCompliantTimezoneShift=true", mysqlPort, mysqlDBName),
+        "mysqlUser",
+        "mysqlPass",
+        false);
+    jdbcStorageConfig.setEnabled(true);
+
+    JdbcStoragePlugin jdbcStoragePlugin = new JdbcStoragePlugin(jdbcStorageConfig,
+        cluster.drillbit().getContext(), mysqlPluginName);
+    pluginRegistry.addPluginToPersistentStoreIfAbsent(mysqlPluginName, jdbcStorageConfig, jdbcStoragePlugin);
+
+    if (osName.startsWith("linux")) {
+      // adds storage plugin with case insensitive table names
+      String mysqlCaseSensitivePluginName = "mysqlCaseInsensitive";
+      JdbcStorageConfig jdbcCaseSensitiveStorageConfig = new JdbcStorageConfig(
+          "com.mysql.cj.jdbc.Driver",
+          String.format("jdbc:mysql://localhost:%s/%s?useJDBCCompliantTimezoneShift=true", mysqlPort, mysqlDBName),
+          "mysqlUser",
+          "mysqlPass",
+          true);
+      jdbcCaseSensitiveStorageConfig.setEnabled(true);
+
+      JdbcStoragePlugin jdbcCaseSensitiveStoragePlugin = new JdbcStoragePlugin(jdbcCaseSensitiveStorageConfig,
+          cluster.drillbit().getContext(), mysqlCaseSensitivePluginName);
+      pluginRegistry.addPluginToPersistentStoreIfAbsent(mysqlCaseSensitivePluginName, jdbcCaseSensitiveStorageConfig, jdbcCaseSensitiveStoragePlugin);
+    }
+  }
+
+  @AfterClass
+  public static void stopMysql() {
+    if (mysqld != null) {
+      mysqld.stop();
+    }
+  }
 
   @Test
   public void validateResult() throws Exception {
@@ -110,38 +189,48 @@ public class TestJdbcPluginWithMySQLIT extends PlanTestBase {
             null,
             null,
             null, "XXX")
-            .go();
+        .go();
   }
 
   @Test
   public void pushdownJoin() throws Exception {
     String query = "select x.person_id from (select person_id from mysql.`drill_mysql_test`.person) x "
             + "join (select person_id from mysql.`drill_mysql_test`.person) y on x.person_id = y.person_id ";
-    testPlanMatchingPatterns(query, new String[]{}, new String[]{"Join"});
+    String plan = queryBuilder().sql(query).explainText();
+
+    assertThat("Query plan shouldn't contain Join operator",
+        plan, not(containsString("Join")));
   }
 
   @Test
   public void pushdownJoinAndFilterPushDown() throws Exception {
-    final String query = "select * from " +
+    String query = "select * from " +
             "mysql.`drill_mysql_test`.person e " +
             "INNER JOIN " +
             "mysql.`drill_mysql_test`.person s " +
             "ON e.first_name = s.first_name " +
             "WHERE e.last_name > 'hello'";
 
-    testPlanMatchingPatterns(query, new String[] {}, new String[] { "Join", "Filter" });
+    String plan = queryBuilder().sql(query).explainText();
+
+    assertThat("Query plan shouldn't contain Join operator",
+        plan, not(containsString("Join")));
+    assertThat("Query plan shouldn't contain Filter operator",
+        plan, not(containsString("Filter")));
   }
 
   @Test
   public void testPhysicalPlanSubmission() throws Exception {
-    testPhysicalPlanExecutionBasedOnQuery("select * from mysql.`drill_mysql_test`.person");
+    String query = "select * from mysql.`drill_mysql_test`.person";
+    String plan = queryBuilder().sql(query).explainJson();
+    assertEquals(4, queryBuilder().physical(plan).run().recordCount());
   }
 
   @Test
   public void emptyOutput() throws Exception {
     String query = "select * from mysql.`drill_mysql_test`.person e limit 0";
 
-    test(query);
+    run(query);
   }
 
   @Test
@@ -151,16 +240,87 @@ public class TestJdbcPluginWithMySQLIT extends PlanTestBase {
         "Skip tests for non-linux systems due to " +
             "table names case-insensitivity problems on Windows and MacOS",
         osName.startsWith("linux"));
-    test("use mysqlCaseInsensitive.`drill_mysql_test`");
+    run("use mysqlCaseInsensitive.`drill_mysql_test`");
     // two table names match the filter ignoring the case
-    assertEquals(2, testSql("show tables like 'caseSensitiveTable'"));
+    assertEquals(2, queryBuilder().sql("show tables like 'caseSensitiveTable'").run().recordCount());
 
-    test("use mysql.`drill_mysql_test`");
+    run("use mysql.`drill_mysql_test`");
     // single table matches the filter considering table name the case
-    assertEquals(1, testSql("show tables like 'caseSensitiveTable'"));
+    assertEquals(1, queryBuilder().sql("show tables like 'caseSensitiveTable'").run().recordCount());
 
     // checks that tables with names in different case are recognized correctly
-    assertEquals(1, testSql("describe caseSensitiveTable"));
-    assertEquals(2, testSql("describe CASESENSITIVETABLE"));
+    assertEquals(1, queryBuilder().sql("describe caseSensitiveTable").run().recordCount());
+    assertEquals(2, queryBuilder().sql("describe CASESENSITIVETABLE").run().recordCount());
+  }
+
+  @Test // DRILL-6734
+  public void testExpressionsWithoutAlias() throws Exception {
+    String query = "select count(*), 1+1+2+3+5+8+13+21+34, (1+sqrt(5))/2\n" +
+        "from mysql.`drill_mysql_test`.person";
+
+    testBuilder()
+        .sqlQuery(query)
+        .unOrdered()
+        .baselineColumns("EXPR$0", "EXPR$1", "EXPR$2")
+        .baselineValues(4L, 88L, 1.618033988749895)
+        .go();
+  }
+
+  @Test // DRILL-6734
+  public void testExpressionsWithoutAliasesPermutations() throws Exception {
+    String query = "select EXPR$1, EXPR$0, EXPR$2\n" +
+        "from (select 1+1+2+3+5+8+13+21+34, (1+sqrt(5))/2, count(*) from mysql.`drill_mysql_test`.person)";
+
+    testBuilder()
+        .sqlQuery(query)
+        .unOrdered()
+        .baselineColumns("EXPR$1", "EXPR$0", "EXPR$2")
+        .baselineValues(1.618033988749895, 88L, 4L)
+        .go();
+  }
+
+  @Test // DRILL-6734
+  public void testExpressionsWithAliases() throws Exception {
+    String query = "select person_id as ID, 1+1+2+3+5+8+13+21+34 as FIBONACCI_SUM, (1+sqrt(5))/2 as golden_ratio\n" +
+        "from mysql.`drill_mysql_test`.person limit 2";
+
+    testBuilder()
+        .sqlQuery(query)
+        .unOrdered()
+        .baselineColumns("ID", "FIBONACCI_SUM", "golden_ratio")
+        .baselineValues(1, 88L, 1.618033988749895)
+        .baselineValues(2, 88L, 1.618033988749895)
+        .go();
+  }
+
+  @Test // DRILL-6893
+  public void testJoinStar() throws Exception {
+    String query = "select * from (select person_id from mysql.`drill_mysql_test`.person) t1 join " +
+        "(select person_id from mysql.`drill_mysql_test`.person) t2 on t1.person_id = t2.person_id";
+
+    testBuilder()
+        .sqlQuery(query)
+        .unOrdered()
+        .baselineColumns("person_id", "person_id0")
+        .baselineValues(1, 1)
+        .baselineValues(2, 2)
+        .baselineValues(3, 3)
+        .baselineValues(5, 5)
+        .go();
+  }
+
+  @Test
+  public void testSemiJoin() throws Exception {
+    String query =
+        "select person_id from mysql.`drill_mysql_test`.person t1\n" +
+            "where exists (" +
+                "select person_id from mysql.`drill_mysql_test`.person\n" +
+                "where t1.person_id = person_id)";
+    testBuilder()
+        .sqlQuery(query)
+        .unOrdered()
+        .baselineColumns("person_id")
+        .baselineValuesForSingleColumn(1, 2, 3, 5)
+        .go();
   }
 }

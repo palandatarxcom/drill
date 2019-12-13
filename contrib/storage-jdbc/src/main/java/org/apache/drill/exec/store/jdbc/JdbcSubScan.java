@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.jdbc;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.proto.beans.CoreOperatorType;
@@ -29,25 +30,31 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
+import java.util.List;
+
 @JsonTypeName("jdbc-sub-scan")
 public class JdbcSubScan extends AbstractSubScan {
 
   private final String sql;
   private final JdbcStoragePlugin plugin;
+  private final List<SchemaPath> columns;
 
   @JsonCreator
   public JdbcSubScan(
       @JsonProperty("sql") String sql,
+      @JsonProperty("columns") List<SchemaPath> columns,
       @JsonProperty("config") StoragePluginConfig config,
       @JacksonInject StoragePluginRegistry plugins) throws ExecutionSetupException {
     super("");
     this.sql = sql;
+    this.columns = columns;
     this.plugin = (JdbcStoragePlugin) plugins.getPlugin(config);
   }
 
-  JdbcSubScan(String sql, JdbcStoragePlugin plugin) {
+  JdbcSubScan(String sql, List<SchemaPath> columns, JdbcStoragePlugin plugin) {
     super("");
     this.sql = sql;
+    this.columns = columns;
     this.plugin = plugin;
   }
 
@@ -60,6 +67,10 @@ public class JdbcSubScan extends AbstractSubScan {
     return sql;
   }
 
+  public List<SchemaPath> getColumns() {
+    return columns;
+  }
+
   public StoragePluginConfig getConfig() {
     return plugin.getConfig();
   }
@@ -68,5 +79,4 @@ public class JdbcSubScan extends AbstractSubScan {
   public JdbcStoragePlugin getPlugin() {
     return plugin;
   }
-
 }

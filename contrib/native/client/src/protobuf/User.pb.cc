@@ -671,7 +671,7 @@ void protobuf_AssignDesc_User_2eproto() {
       ::google::protobuf::MessageFactory::generated_factory(),
       sizeof(GetServerMetaResp));
   ServerMeta_descriptor_ = file->message_type(29);
-  static const int ServerMeta_offsets_[49] = {
+  static const int ServerMeta_offsets_[50] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ServerMeta, all_tables_selectable_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ServerMeta, blob_included_in_max_row_size_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ServerMeta, catalog_at_start_),
@@ -721,6 +721,7 @@ void protobuf_AssignDesc_User_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ServerMeta, table_term_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ServerMeta, transaction_supported_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ServerMeta, union_support_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ServerMeta, current_schema_),
   };
   ServerMeta_reflection_ =
     new ::google::protobuf::internal::GeneratedMessageReflection(
@@ -734,12 +735,13 @@ void protobuf_AssignDesc_User_2eproto() {
       ::google::protobuf::MessageFactory::generated_factory(),
       sizeof(ServerMeta));
   RunQuery_descriptor_ = file->message_type(30);
-  static const int RunQuery_offsets_[5] = {
+  static const int RunQuery_offsets_[6] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(RunQuery, results_mode_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(RunQuery, type_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(RunQuery, plan_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(RunQuery, fragments_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(RunQuery, prepared_statement_handle_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(RunQuery, autolimit_rowcount_),
   };
   RunQuery_reflection_ =
     new ::google::protobuf::internal::GeneratedMessageReflection(
@@ -1039,7 +1041,7 @@ void protobuf_AddDesc_User_2eproto() {
     "verMetaResp\022(\n\006status\030\001 \001(\0162\030.exec.user."
     "RequestStatus\022*\n\013server_meta\030\002 \001(\0132\025.exe"
     "c.user.ServerMeta\022(\n\005error\030\003 \001(\0132\031.exec."
-    "shared.DrillPBError\"\377\r\n\nServerMeta\022\035\n\025al"
+    "shared.DrillPBError\"\227\016\n\nServerMeta\022\035\n\025al"
     "l_tables_selectable\030\001 \001(\010\022%\n\035blob_includ"
     "ed_in_max_row_size\030\002 \001(\010\022\030\n\020catalog_at_s"
     "tart\030\003 \001(\010\022\031\n\021catalog_separator\030\004 \001(\t\022\024\n"
@@ -1084,70 +1086,71 @@ void protobuf_AddDesc_User_2eproto() {
     "ySupport\022\030\n\020system_functions\030. \003(\t\022\022\n\nta"
     "ble_term\030/ \001(\t\022\035\n\025transaction_supported\030"
     "0 \001(\010\022.\n\runion_support\0301 \003(\0162\027.exec.user"
-    ".UnionSupport\"\353\001\n\010RunQuery\0221\n\014results_mo"
-    "de\030\001 \001(\0162\033.exec.user.QueryResultsMode\022$\n"
-    "\004type\030\002 \001(\0162\026.exec.shared.QueryType\022\014\n\004p"
-    "lan\030\003 \001(\t\0221\n\tfragments\030\004 \003(\0132\036.exec.bit."
-    "control.PlanFragment\022E\n\031prepared_stateme"
-    "nt_handle\030\005 \001(\0132\".exec.user.PreparedStat"
-    "ementHandle*\320\003\n\007RpcType\022\r\n\tHANDSHAKE\020\000\022\007"
-    "\n\003ACK\020\001\022\013\n\007GOODBYE\020\002\022\r\n\tRUN_QUERY\020\003\022\020\n\014C"
-    "ANCEL_QUERY\020\004\022\023\n\017REQUEST_RESULTS\020\005\022\027\n\023RE"
-    "SUME_PAUSED_QUERY\020\013\022\034\n\030GET_QUERY_PLAN_FR"
-    "AGMENTS\020\014\022\020\n\014GET_CATALOGS\020\016\022\017\n\013GET_SCHEM"
-    "AS\020\017\022\016\n\nGET_TABLES\020\020\022\017\n\013GET_COLUMNS\020\021\022\035\n"
-    "\031CREATE_PREPARED_STATEMENT\020\026\022\023\n\017GET_SERV"
-    "ER_META\020\010\022\016\n\nQUERY_DATA\020\006\022\020\n\014QUERY_HANDL"
-    "E\020\007\022\030\n\024QUERY_PLAN_FRAGMENTS\020\r\022\014\n\010CATALOG"
-    "S\020\022\022\013\n\007SCHEMAS\020\023\022\n\n\006TABLES\020\024\022\013\n\007COLUMNS\020"
-    "\025\022\026\n\022PREPARED_STATEMENT\020\027\022\017\n\013SERVER_META"
-    "\020\t\022\020\n\014QUERY_RESULT\020\n\022\020\n\014SASL_MESSAGE\020\030*H"
-    "\n\013SaslSupport\022\030\n\024UNKNOWN_SASL_SUPPORT\020\000\022"
-    "\r\n\tSASL_AUTH\020\001\022\020\n\014SASL_PRIVACY\020\002*#\n\020Quer"
-    "yResultsMode\022\017\n\013STREAM_FULL\020\001*q\n\017Handsha"
-    "keStatus\022\013\n\007SUCCESS\020\001\022\030\n\024RPC_VERSION_MIS"
-    "MATCH\020\002\022\017\n\013AUTH_FAILED\020\003\022\023\n\017UNKNOWN_FAIL"
-    "URE\020\004\022\021\n\rAUTH_REQUIRED\020\005*D\n\rRequestStatu"
-    "s\022\022\n\016UNKNOWN_STATUS\020\000\022\006\n\002OK\020\001\022\n\n\006FAILED\020"
-    "\002\022\013\n\007TIMEOUT\020\003*Y\n\023ColumnSearchability\022\031\n"
-    "\025UNKNOWN_SEARCHABILITY\020\000\022\010\n\004NONE\020\001\022\010\n\004CH"
-    "AR\020\002\022\n\n\006NUMBER\020\003\022\007\n\003ALL\020\004*K\n\022ColumnUpdat"
-    "ability\022\030\n\024UNKNOWN_UPDATABILITY\020\000\022\r\n\tREA"
-    "D_ONLY\020\001\022\014\n\010WRITABLE\020\002*1\n\016CollateSupport"
-    "\022\016\n\nCS_UNKNOWN\020\000\022\017\n\013CS_GROUP_BY\020\001*J\n\027Cor"
-    "relationNamesSupport\022\013\n\007CN_NONE\020\001\022\026\n\022CN_"
-    "DIFFERENT_NAMES\020\002\022\n\n\006CN_ANY\020\003*\271\003\n\027DateTi"
-    "meLiteralsSupport\022\016\n\nDL_UNKNOWN\020\000\022\013\n\007DL_"
-    "DATE\020\001\022\013\n\007DL_TIME\020\002\022\020\n\014DL_TIMESTAMP\020\003\022\024\n"
-    "\020DL_INTERVAL_YEAR\020\004\022\025\n\021DL_INTERVAL_MONTH"
-    "\020\005\022\023\n\017DL_INTERVAL_DAY\020\006\022\024\n\020DL_INTERVAL_H"
-    "OUR\020\007\022\026\n\022DL_INTERVAL_MINUTE\020\010\022\026\n\022DL_INTE"
-    "RVAL_SECOND\020\t\022\035\n\031DL_INTERVAL_YEAR_TO_MON"
-    "TH\020\n\022\033\n\027DL_INTERVAL_DAY_TO_HOUR\020\013\022\035\n\031DL_"
-    "INTERVAL_DAY_TO_MINUTE\020\014\022\035\n\031DL_INTERVAL_"
-    "DAY_TO_SECOND\020\r\022\036\n\032DL_INTERVAL_HOUR_TO_M"
-    "INUTE\020\016\022\036\n\032DL_INTERVAL_HOUR_TO_SECOND\020\017\022"
-    " \n\034DL_INTERVAL_MINUTE_TO_SECOND\020\020*Y\n\016Gro"
-    "upBySupport\022\013\n\007GB_NONE\020\001\022\022\n\016GB_SELECT_ON"
-    "LY\020\002\022\024\n\020GB_BEYOND_SELECT\020\003\022\020\n\014GB_UNRELAT"
-    "ED\020\004*x\n\020IdentifierCasing\022\016\n\nIC_UNKNOWN\020\000"
-    "\022\023\n\017IC_STORES_LOWER\020\001\022\023\n\017IC_STORES_MIXED"
-    "\020\002\022\023\n\017IC_STORES_UPPER\020\003\022\025\n\021IC_SUPPORTS_M"
-    "IXED\020\004*X\n\rNullCollation\022\016\n\nNC_UNKNOWN\020\000\022"
-    "\017\n\013NC_AT_START\020\001\022\r\n\tNC_AT_END\020\002\022\013\n\007NC_HI"
-    "GH\020\003\022\n\n\006NC_LOW\020\004*E\n\016OrderBySupport\022\016\n\nOB"
-    "_UNKNOWN\020\000\022\020\n\014OB_UNRELATED\020\001\022\021\n\rOB_EXPRE"
-    "SSION\020\002*\226\001\n\020OuterJoinSupport\022\016\n\nOJ_UNKNO"
-    "WN\020\000\022\013\n\007OJ_LEFT\020\001\022\014\n\010OJ_RIGHT\020\002\022\013\n\007OJ_FU"
-    "LL\020\003\022\r\n\tOJ_NESTED\020\004\022\022\n\016OJ_NOT_ORDERED\020\005\022"
-    "\014\n\010OJ_INNER\020\006\022\031\n\025OJ_ALL_COMPARISON_OPS\020\007"
-    "*\204\001\n\017SubQuerySupport\022\016\n\nSQ_UNKNOWN\020\000\022\021\n\r"
-    "SQ_CORRELATED\020\001\022\024\n\020SQ_IN_COMPARISON\020\002\022\020\n"
-    "\014SQ_IN_EXISTS\020\003\022\020\n\014SQ_IN_INSERT\020\004\022\024\n\020SQ_"
-    "IN_QUANTIFIED\020\005*;\n\014UnionSupport\022\r\n\tU_UNK"
-    "NOWN\020\000\022\013\n\007U_UNION\020\001\022\017\n\013U_UNION_ALL\020\002B+\n\033"
-    "org.apache.drill.exec.protoB\nUserProtosH"
-    "\001", 8881);
+    ".UnionSupport\022\026\n\016current_schema\0302 \001(\t\"\207\002"
+    "\n\010RunQuery\0221\n\014results_mode\030\001 \001(\0162\033.exec."
+    "user.QueryResultsMode\022$\n\004type\030\002 \001(\0162\026.ex"
+    "ec.shared.QueryType\022\014\n\004plan\030\003 \001(\t\0221\n\tfra"
+    "gments\030\004 \003(\0132\036.exec.bit.control.PlanFrag"
+    "ment\022E\n\031prepared_statement_handle\030\005 \001(\0132"
+    "\".exec.user.PreparedStatementHandle\022\032\n\022a"
+    "utolimit_rowcount\030\006 \001(\005*\320\003\n\007RpcType\022\r\n\tH"
+    "ANDSHAKE\020\000\022\007\n\003ACK\020\001\022\013\n\007GOODBYE\020\002\022\r\n\tRUN_"
+    "QUERY\020\003\022\020\n\014CANCEL_QUERY\020\004\022\023\n\017REQUEST_RES"
+    "ULTS\020\005\022\027\n\023RESUME_PAUSED_QUERY\020\013\022\034\n\030GET_Q"
+    "UERY_PLAN_FRAGMENTS\020\014\022\020\n\014GET_CATALOGS\020\016\022"
+    "\017\n\013GET_SCHEMAS\020\017\022\016\n\nGET_TABLES\020\020\022\017\n\013GET_"
+    "COLUMNS\020\021\022\035\n\031CREATE_PREPARED_STATEMENT\020\026"
+    "\022\023\n\017GET_SERVER_META\020\010\022\016\n\nQUERY_DATA\020\006\022\020\n"
+    "\014QUERY_HANDLE\020\007\022\030\n\024QUERY_PLAN_FRAGMENTS\020"
+    "\r\022\014\n\010CATALOGS\020\022\022\013\n\007SCHEMAS\020\023\022\n\n\006TABLES\020\024"
+    "\022\013\n\007COLUMNS\020\025\022\026\n\022PREPARED_STATEMENT\020\027\022\017\n"
+    "\013SERVER_META\020\t\022\020\n\014QUERY_RESULT\020\n\022\020\n\014SASL"
+    "_MESSAGE\020\030*H\n\013SaslSupport\022\030\n\024UNKNOWN_SAS"
+    "L_SUPPORT\020\000\022\r\n\tSASL_AUTH\020\001\022\020\n\014SASL_PRIVA"
+    "CY\020\002*#\n\020QueryResultsMode\022\017\n\013STREAM_FULL\020"
+    "\001*q\n\017HandshakeStatus\022\013\n\007SUCCESS\020\001\022\030\n\024RPC"
+    "_VERSION_MISMATCH\020\002\022\017\n\013AUTH_FAILED\020\003\022\023\n\017"
+    "UNKNOWN_FAILURE\020\004\022\021\n\rAUTH_REQUIRED\020\005*D\n\r"
+    "RequestStatus\022\022\n\016UNKNOWN_STATUS\020\000\022\006\n\002OK\020"
+    "\001\022\n\n\006FAILED\020\002\022\013\n\007TIMEOUT\020\003*Y\n\023ColumnSear"
+    "chability\022\031\n\025UNKNOWN_SEARCHABILITY\020\000\022\010\n\004"
+    "NONE\020\001\022\010\n\004CHAR\020\002\022\n\n\006NUMBER\020\003\022\007\n\003ALL\020\004*K\n"
+    "\022ColumnUpdatability\022\030\n\024UNKNOWN_UPDATABIL"
+    "ITY\020\000\022\r\n\tREAD_ONLY\020\001\022\014\n\010WRITABLE\020\002*1\n\016Co"
+    "llateSupport\022\016\n\nCS_UNKNOWN\020\000\022\017\n\013CS_GROUP"
+    "_BY\020\001*J\n\027CorrelationNamesSupport\022\013\n\007CN_N"
+    "ONE\020\001\022\026\n\022CN_DIFFERENT_NAMES\020\002\022\n\n\006CN_ANY\020"
+    "\003*\271\003\n\027DateTimeLiteralsSupport\022\016\n\nDL_UNKN"
+    "OWN\020\000\022\013\n\007DL_DATE\020\001\022\013\n\007DL_TIME\020\002\022\020\n\014DL_TI"
+    "MESTAMP\020\003\022\024\n\020DL_INTERVAL_YEAR\020\004\022\025\n\021DL_IN"
+    "TERVAL_MONTH\020\005\022\023\n\017DL_INTERVAL_DAY\020\006\022\024\n\020D"
+    "L_INTERVAL_HOUR\020\007\022\026\n\022DL_INTERVAL_MINUTE\020"
+    "\010\022\026\n\022DL_INTERVAL_SECOND\020\t\022\035\n\031DL_INTERVAL"
+    "_YEAR_TO_MONTH\020\n\022\033\n\027DL_INTERVAL_DAY_TO_H"
+    "OUR\020\013\022\035\n\031DL_INTERVAL_DAY_TO_MINUTE\020\014\022\035\n\031"
+    "DL_INTERVAL_DAY_TO_SECOND\020\r\022\036\n\032DL_INTERV"
+    "AL_HOUR_TO_MINUTE\020\016\022\036\n\032DL_INTERVAL_HOUR_"
+    "TO_SECOND\020\017\022 \n\034DL_INTERVAL_MINUTE_TO_SEC"
+    "OND\020\020*Y\n\016GroupBySupport\022\013\n\007GB_NONE\020\001\022\022\n\016"
+    "GB_SELECT_ONLY\020\002\022\024\n\020GB_BEYOND_SELECT\020\003\022\020"
+    "\n\014GB_UNRELATED\020\004*x\n\020IdentifierCasing\022\016\n\n"
+    "IC_UNKNOWN\020\000\022\023\n\017IC_STORES_LOWER\020\001\022\023\n\017IC_"
+    "STORES_MIXED\020\002\022\023\n\017IC_STORES_UPPER\020\003\022\025\n\021I"
+    "C_SUPPORTS_MIXED\020\004*X\n\rNullCollation\022\016\n\nN"
+    "C_UNKNOWN\020\000\022\017\n\013NC_AT_START\020\001\022\r\n\tNC_AT_EN"
+    "D\020\002\022\013\n\007NC_HIGH\020\003\022\n\n\006NC_LOW\020\004*E\n\016OrderByS"
+    "upport\022\016\n\nOB_UNKNOWN\020\000\022\020\n\014OB_UNRELATED\020\001"
+    "\022\021\n\rOB_EXPRESSION\020\002*\226\001\n\020OuterJoinSupport"
+    "\022\016\n\nOJ_UNKNOWN\020\000\022\013\n\007OJ_LEFT\020\001\022\014\n\010OJ_RIGH"
+    "T\020\002\022\013\n\007OJ_FULL\020\003\022\r\n\tOJ_NESTED\020\004\022\022\n\016OJ_NO"
+    "T_ORDERED\020\005\022\014\n\010OJ_INNER\020\006\022\031\n\025OJ_ALL_COMP"
+    "ARISON_OPS\020\007*\204\001\n\017SubQuerySupport\022\016\n\nSQ_U"
+    "NKNOWN\020\000\022\021\n\rSQ_CORRELATED\020\001\022\024\n\020SQ_IN_COM"
+    "PARISON\020\002\022\020\n\014SQ_IN_EXISTS\020\003\022\020\n\014SQ_IN_INS"
+    "ERT\020\004\022\024\n\020SQ_IN_QUANTIFIED\020\005*;\n\014UnionSupp"
+    "ort\022\r\n\tU_UNKNOWN\020\000\022\013\n\007U_UNION\020\001\022\017\n\013U_UNI"
+    "ON_ALL\020\002B+\n\033org.apache.drill.exec.protoB"
+    "\nUserProtosH\001", 8933);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "User.proto", &protobuf_RegisterTypes);
   Property::default_instance_ = new Property();
@@ -12284,6 +12287,7 @@ const int ServerMeta::kSystemFunctionsFieldNumber;
 const int ServerMeta::kTableTermFieldNumber;
 const int ServerMeta::kTransactionSupportedFieldNumber;
 const int ServerMeta::kUnionSupportFieldNumber;
+const int ServerMeta::kCurrentSchemaFieldNumber;
 #endif  // !_MSC_VER
 
 ServerMeta::ServerMeta()
@@ -12339,6 +12343,7 @@ void ServerMeta::SharedCtor() {
   special_characters_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   table_term_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   transaction_supported_ = false;
+  current_schema_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -12367,6 +12372,9 @@ void ServerMeta::SharedDtor() {
   }
   if (table_term_ != &::google::protobuf::internal::kEmptyString) {
     delete table_term_;
+  }
+  if (current_schema_ != &::google::protobuf::internal::kEmptyString) {
+    delete current_schema_;
   }
   if (this != default_instance_) {
   }
@@ -12470,6 +12478,13 @@ void ServerMeta::Clear() {
       }
     }
     transaction_supported_ = false;
+  }
+  if (_has_bits_[49 / 32] & (0xffu << (49 % 32))) {
+    if (has_current_schema()) {
+      if (current_schema_ != &::google::protobuf::internal::kEmptyString) {
+        current_schema_->clear();
+      }
+    }
   }
   collate_support_.Clear();
   convert_support_.Clear();
@@ -13396,6 +13411,23 @@ bool ServerMeta::MergePartialFromCodedStream(
           goto handle_uninterpreted;
         }
         if (input->ExpectTag(392)) goto parse_union_support;
+        if (input->ExpectTag(402)) goto parse_current_schema;
+        break;
+      }
+
+      // optional string current_schema = 50;
+      case 50: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
+         parse_current_schema:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_current_schema()));
+          ::google::protobuf::internal::WireFormat::VerifyUTF8String(
+            this->current_schema().data(), this->current_schema().length(),
+            ::google::protobuf::internal::WireFormat::PARSE);
+        } else {
+          goto handle_uninterpreted;
+        }
         if (input->ExpectAtEnd()) return true;
         break;
       }
@@ -13723,6 +13755,15 @@ void ServerMeta::SerializeWithCachedSizes(
       49, this->union_support(i), output);
   }
 
+  // optional string current_schema = 50;
+  if (has_current_schema()) {
+    ::google::protobuf::internal::WireFormat::VerifyUTF8String(
+      this->current_schema().data(), this->current_schema().length(),
+      ::google::protobuf::internal::WireFormat::SERIALIZE);
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      50, this->current_schema(), output);
+  }
+
   if (!unknown_fields().empty()) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         unknown_fields(), output);
@@ -14044,6 +14085,16 @@ void ServerMeta::SerializeWithCachedSizes(
       49, this->union_support(i), target);
   }
 
+  // optional string current_schema = 50;
+  if (has_current_schema()) {
+    ::google::protobuf::internal::WireFormat::VerifyUTF8String(
+      this->current_schema().data(), this->current_schema().length(),
+      ::google::protobuf::internal::WireFormat::SERIALIZE);
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        50, this->current_schema(), target);
+  }
+
   if (!unknown_fields().empty()) {
     target = ::google::protobuf::internal::WireFormat::SerializeUnknownFieldsToArray(
         unknown_fields(), target);
@@ -14299,6 +14350,15 @@ int ServerMeta::ByteSize() const {
     // optional bool transaction_supported = 48;
     if (has_transaction_supported()) {
       total_size += 2 + 1;
+    }
+
+  }
+  if (_has_bits_[49 / 32] & (0xffu << (49 % 32))) {
+    // optional string current_schema = 50;
+    if (has_current_schema()) {
+      total_size += 2 +
+        ::google::protobuf::internal::WireFormatLite::StringSize(
+          this->current_schema());
     }
 
   }
@@ -14565,6 +14625,11 @@ void ServerMeta::MergeFrom(const ServerMeta& from) {
       set_transaction_supported(from.transaction_supported());
     }
   }
+  if (from._has_bits_[49 / 32] & (0xffu << (49 % 32))) {
+    if (from.has_current_schema()) {
+      set_current_schema(from.current_schema());
+    }
+  }
   mutable_unknown_fields()->MergeFrom(from.unknown_fields());
 }
 
@@ -14639,6 +14704,7 @@ void ServerMeta::Swap(ServerMeta* other) {
     std::swap(table_term_, other->table_term_);
     std::swap(transaction_supported_, other->transaction_supported_);
     union_support_.Swap(&other->union_support_);
+    std::swap(current_schema_, other->current_schema_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     std::swap(_has_bits_[1], other->_has_bits_[1]);
     _unknown_fields_.Swap(&other->_unknown_fields_);
@@ -14663,6 +14729,7 @@ const int RunQuery::kTypeFieldNumber;
 const int RunQuery::kPlanFieldNumber;
 const int RunQuery::kFragmentsFieldNumber;
 const int RunQuery::kPreparedStatementHandleFieldNumber;
+const int RunQuery::kAutolimitRowcountFieldNumber;
 #endif  // !_MSC_VER
 
 RunQuery::RunQuery()
@@ -14686,6 +14753,7 @@ void RunQuery::SharedCtor() {
   type_ = 1;
   plan_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   prepared_statement_handle_ = NULL;
+  autolimit_rowcount_ = 0;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -14735,6 +14803,7 @@ void RunQuery::Clear() {
     if (has_prepared_statement_handle()) {
       if (prepared_statement_handle_ != NULL) prepared_statement_handle_->::exec::user::PreparedStatementHandle::Clear();
     }
+    autolimit_rowcount_ = 0;
   }
   fragments_.Clear();
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -14830,6 +14899,22 @@ bool RunQuery::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
+        if (input->ExpectTag(48)) goto parse_autolimit_rowcount;
+        break;
+      }
+
+      // optional int32 autolimit_rowcount = 6;
+      case 6: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_autolimit_rowcount:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &autolimit_rowcount_)));
+          set_has_autolimit_rowcount();
+        } else {
+          goto handle_uninterpreted;
+        }
         if (input->ExpectAtEnd()) return true;
         break;
       }
@@ -14885,6 +14970,11 @@ void RunQuery::SerializeWithCachedSizes(
       5, this->prepared_statement_handle(), output);
   }
 
+  // optional int32 autolimit_rowcount = 6;
+  if (has_autolimit_rowcount()) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(6, this->autolimit_rowcount(), output);
+  }
+
   if (!unknown_fields().empty()) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         unknown_fields(), output);
@@ -14929,6 +15019,11 @@ void RunQuery::SerializeWithCachedSizes(
         5, this->prepared_statement_handle(), target);
   }
 
+  // optional int32 autolimit_rowcount = 6;
+  if (has_autolimit_rowcount()) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(6, this->autolimit_rowcount(), target);
+  }
+
   if (!unknown_fields().empty()) {
     target = ::google::protobuf::internal::WireFormat::SerializeUnknownFieldsToArray(
         unknown_fields(), target);
@@ -14964,6 +15059,13 @@ int RunQuery::ByteSize() const {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
           this->prepared_statement_handle());
+    }
+
+    // optional int32 autolimit_rowcount = 6;
+    if (has_autolimit_rowcount()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::Int32Size(
+          this->autolimit_rowcount());
     }
 
   }
@@ -15014,6 +15116,9 @@ void RunQuery::MergeFrom(const RunQuery& from) {
     if (from.has_prepared_statement_handle()) {
       mutable_prepared_statement_handle()->::exec::user::PreparedStatementHandle::MergeFrom(from.prepared_statement_handle());
     }
+    if (from.has_autolimit_rowcount()) {
+      set_autolimit_rowcount(from.autolimit_rowcount());
+    }
   }
   mutable_unknown_fields()->MergeFrom(from.unknown_fields());
 }
@@ -15042,6 +15147,7 @@ void RunQuery::Swap(RunQuery* other) {
     std::swap(plan_, other->plan_);
     fragments_.Swap(&other->fragments_);
     std::swap(prepared_statement_handle_, other->prepared_statement_handle_);
+    std::swap(autolimit_rowcount_, other->autolimit_rowcount_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     _unknown_fields_.Swap(&other->_unknown_fields_);
     std::swap(_cached_size_, other->_cached_size_);

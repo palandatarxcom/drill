@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
@@ -62,6 +63,7 @@ public class TestBuilder {
   // should the validation enforce ordering
   private Boolean ordered;
   private boolean approximateEquality;
+  private double tolerance;
   private TestServices services;
   // Used to pass the type information associated with particular column names rather than relying on the
   // ordering of the columns in the CSV file, or the default type inferences when reading JSON, this is used for the
@@ -70,7 +72,7 @@ public class TestBuilder {
   protected Map<SchemaPath, TypeProtos.MajorType> baselineTypeMap;
   // queries to run before the baseline or test queries, can be used to set options
   private String baselineOptionSettingQueries;
-  private String testOptionSettingQueries;
+  private String testOptionSettingQueries = "";
   // two different methods are available for comparing ordered results, the default reads all of the records
   // into giant lists of objects, like one giant on-heap batch of 'vectors'
   // this flag enables the other approach which iterates through a hyper batch for the test query results and baseline
@@ -110,7 +112,9 @@ public class TestBuilder {
     this.approximateEquality = approximateEquality;
     this.baselineTypeMap = baselineTypeMap;
     this.baselineOptionSettingQueries = baselineOptionSettingQueries;
-    this.testOptionSettingQueries = testOptionSettingQueries;
+    this.testOptionSettingQueries = StringUtils.isNotEmpty(testOptionSettingQueries)
+        ? testOptionSettingQueries.concat(" ; ")
+        : testOptionSettingQueries;
     this.highPerformanceComparison = highPerformanceComparison;
     this.expectedNumBatches = expectedNumBatches;
   }
@@ -119,6 +123,7 @@ public class TestBuilder {
     query = "";
     ordered = null;
     approximateEquality = false;
+    tolerance = 0.1;
     highPerformanceComparison = false;
     testOptionSettingQueries = "";
     baselineOptionSettingQueries = "";
@@ -128,7 +133,8 @@ public class TestBuilder {
 
   public DrillTestWrapper build() {
     return new DrillTestWrapper(this, services, query, queryType, baselineOptionSettingQueries, testOptionSettingQueries,
-        getValidationQueryType(), ordered, highPerformanceComparison, baselineColumns, baselineRecords, expectedNumBatches, expectedNumRecords);
+        getValidationQueryType(), ordered, approximateEquality, tolerance, highPerformanceComparison, baselineColumns,
+            baselineRecords, expectedNumBatches, expectedNumRecords);
   }
 
   public List<Pair<SchemaPath, TypeProtos.MajorType>> getExpectedSchema() {
@@ -205,17 +211,22 @@ public class TestBuilder {
    */
 
   public TestBuilder optionSettingQueriesForTestQuery(String queries) {
-    testOptionSettingQueries = queries;
+    testOptionSettingQueries += queries.concat(" ; ");
     return this;
   }
 
   public TestBuilder optionSettingQueriesForTestQuery(String query, Object... args) throws Exception {
-    testOptionSettingQueries = String.format(query, args);
+    testOptionSettingQueries += String.format(query, args).concat(" ; ");
     return this;
   }
 
   public TestBuilder approximateEquality() {
+    return approximateEquality(0.1);
+  }
+
+  public TestBuilder approximateEquality(double tolerance) {
     approximateEquality = true;
+    this.tolerance = tolerance;
     return this;
   }
 

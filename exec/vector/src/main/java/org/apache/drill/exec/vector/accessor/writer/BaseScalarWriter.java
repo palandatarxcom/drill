@@ -19,8 +19,12 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
+import org.joda.time.Instant;
+import org.joda.time.LocalDate;
+import org.joda.time.LocalTime;
 import org.joda.time.Period;
 
 import io.netty.buffer.DrillBuf;
@@ -129,7 +133,7 @@ import io.netty.buffer.DrillBuf;
  * a roll-over when a vector overflows.
  */
 
-public abstract class BaseScalarWriter extends AbstractScalarWriter {
+public abstract class BaseScalarWriter extends AbstractScalarWriterImpl {
 
   public static final int MIN_BUFFER_SIZE = 256;
 
@@ -139,6 +143,13 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
    */
 
   protected ColumnWriterListener listener;
+
+  /**
+   * Value to use to fill empties. Must be at least as wide as each
+   * value.
+   */
+
+  protected byte emptyValue[];
 
   protected DrillBuf drillBuf;
 
@@ -153,6 +164,18 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   @Override
   public void bindListener(ColumnWriterListener listener) {
     this.listener = listener;
+  }
+
+  @Override
+  public void bindSchema(ColumnMetadata schema) {
+    super.bindSchema(schema);
+
+    // Set the default value, if any, from the schema.
+
+    final Object defaultValue = schema.decodeDefaultValue();
+    if (defaultValue != null) {
+      setDefaultValue(defaultValue);
+    }
   }
 
   /**
@@ -211,6 +234,11 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
+  public void setBoolean(boolean value) {
+    throw conversionError("boolean");
+  }
+
+  @Override
   public void setInt(int value) {
     throw conversionError("int");
   }
@@ -243,6 +271,21 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   @Override
   public void setPeriod(Period value) {
     throw conversionError("Period");
+  }
+
+  @Override
+  public void setDate(LocalDate value) {
+    throw conversionError("LocalDate");
+  }
+
+  @Override
+  public void setTime(LocalTime value) {
+    throw conversionError("LocalTime");
+  }
+
+  @Override
+  public void setTimestamp(Instant value) {
+    throw conversionError("Instant");
   }
 
   @Override

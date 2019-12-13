@@ -45,12 +45,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
    */
 
   public static class ResultSetOptions {
-    public final int vectorSizeLimit;
-    public final int rowCountLimit;
-    public final ResultVectorCache vectorCache;
-    public final RequestedTuple projectionSet;
-    public final TupleMetadata schema;
-    public final long maxBatchSize;
+    protected final int vectorSizeLimit;
+    protected final int rowCountLimit;
+    protected final ResultVectorCache vectorCache;
+    protected final RequestedTuple projectionSet;
+    protected final TupleMetadata schema;
+    protected final long maxBatchSize;
+    protected final SchemaTransformer schemaTransformer;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
@@ -59,6 +60,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       vectorCache = null;
       schema = null;
       maxBatchSize = -1;
+      schemaTransformer = null;
     }
 
     public ResultSetOptions(OptionBuilder builder) {
@@ -67,6 +69,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
       vectorCache = builder.vectorCache;
       schema = builder.schema;
       maxBatchSize = builder.maxBatchSize;
+      schemaTransformer = builder.schemaTransformer;
 
       // If projection, build the projection map.
       // The caller might have already built the map. If so,
@@ -84,7 +87,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
         .startObject(this)
         .attribute("vectorSizeLimit", vectorSizeLimit)
         .attribute("rowCountLimit", rowCountLimit)
-//        .attribute("projection", projection)
         .endObject();
     }
   }
@@ -164,7 +166,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     CLOSED
   }
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ResultSetLoaderImpl.class);
+  protected static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ResultSetLoaderImpl.class);
 
   /**
    * Options provided to this loader.
@@ -176,14 +178,20 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
    * Allocator for vectors created by this loader.
    */
 
-  final BufferAllocator allocator;
+  private final BufferAllocator allocator;
+
+  /**
+   * Builds columns (vector, writer, state).
+   */
+
+  private final ColumnBuilder columnBuilder;
 
   /**
    * Internal structure used to work with the vectors (real or dummy) used
    * by this loader.
    */
 
-  final RowState rootState;
+  private final RowState rootState;
 
   /**
    * Top-level writer index that steps through the rows as they are written.
@@ -275,6 +283,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     this.options = options;
     targetRowCount = options.rowCountLimit;
     writerIndex = new WriterIndexImpl(this);
+    SchemaTransformer schemaTransformer = options.schemaTransformer;
+    if (schemaTransformer == null) {
+      schemaTransformer = new DefaultSchemaTransformer(null);
+    }
+    columnBuilder = new ColumnBuilder(schemaTransformer);
 
     // Set the projections
 
@@ -374,6 +387,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     startBatch(false);
   }
 
+  /**
+   * Start a batch to report only schema without data.
+   */
+
   public void startEmptyBatch() {
     startBatch(true);
   }
@@ -422,6 +439,19 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
     harvestSchemaVersion = activeSchemaVersion;
     pendingRowCount = 0;
     state = State.ACTIVE;
+  }
+
+  @Override
+  public boolean hasRows() {
+    switch (state) {
+    case ACTIVE:
+    case HARVESTED:
+      return rootWriter.rowCount() > 0;
+    case LOOK_AHEAD:
+      return true;
+    default:
+      return false;
+    }
   }
 
   @Override
@@ -812,4 +842,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
   public int rowIndex() {
     return writerIndex().vectorIndex();
   }
+
+  @Override
+  public ColumnBuilder columnBuilder() { return columnBuilder; }
 }

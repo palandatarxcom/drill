@@ -17,13 +17,20 @@
  */
 package org.apache.drill.exec.record.metadata;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.MaterializedField;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
-import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Defines the schema of a tuple: either the top-level row or a nested
@@ -32,11 +39,26 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
  * index. New columns may be added at any time; the new column takes the
  * next available index.
  */
-
-public class TupleSchema implements TupleMetadata {
+@JsonAutoDetect(
+  fieldVisibility = JsonAutoDetect.Visibility.NONE,
+  getterVisibility = JsonAutoDetect.Visibility.NONE,
+  isGetterVisibility = JsonAutoDetect.Visibility.NONE,
+  setterVisibility = JsonAutoDetect.Visibility.NONE)
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+@JsonPropertyOrder({"columns", "properties"})
+public class TupleSchema extends AbstractPropertied implements TupleMetadata {
 
   private MapColumnMetadata parentMap;
   private final TupleNameSpace<ColumnMetadata> nameSpace = new TupleNameSpace<>();
+
+  public TupleSchema() { }
+
+  @JsonCreator
+  public TupleSchema(@JsonProperty("columns") List<AbstractColumnMetadata> columns,
+                     @JsonProperty("properties") Map<String, String> properties) {
+    columns.forEach(this::addColumn);
+    setProperties(properties);
+  }
 
   public void bind(MapColumnMetadata parentMap) {
     this.parentMap = parentMap;
@@ -45,20 +67,20 @@ public class TupleSchema implements TupleMetadata {
   public TupleMetadata copy() {
     TupleMetadata tuple = new TupleSchema();
     for (ColumnMetadata md : this) {
-      tuple.addColumn(((AbstractColumnMetadata) md).copy());
+      tuple.addColumn(md.copy());
     }
     return tuple;
   }
 
   @Override
   public ColumnMetadata add(MaterializedField field) {
-    AbstractColumnMetadata md = MetadataUtils.fromField(field);
+    ColumnMetadata md = MetadataUtils.fromField(field);
     add(md);
     return md;
   }
 
   public ColumnMetadata addView(MaterializedField field) {
-    AbstractColumnMetadata md = MetadataUtils.fromView(field);
+    ColumnMetadata md = MetadataUtils.fromView(field);
     add(md);
     return md;
   }
@@ -70,15 +92,14 @@ public class TupleSchema implements TupleMetadata {
    * @param md the custom column metadata which must have the correct
    * index set (from {@link #size()}
    */
-
-  public void add(AbstractColumnMetadata md) {
+  public void add(ColumnMetadata md) {
     md.bind(this);
     nameSpace.add(md.name(), md);
   }
 
   @Override
   public int addColumn(ColumnMetadata column) {
-    add((AbstractColumnMetadata) column);
+    add(column);
     return size() - 1;
   }
 
@@ -145,8 +166,18 @@ public class TupleSchema implements TupleMetadata {
     return cols;
   }
 
+  @JsonProperty("columns")
+  @Override
+  public List<ColumnMetadata> toMetadataList() {
+    return new ArrayList<>(nameSpace.entries());
+  }
+
   public BatchSchema toBatchSchema(SelectionVectorMode svMode) {
     return new BatchSchema(svMode, toFieldList());
+  }
+
+  public static BatchSchema toBatchSchema(TupleMetadata schema) {
+    return ((TupleSchema) schema).toBatchSchema(SelectionVectorMode.NONE);
   }
 
   @Override
@@ -179,18 +210,29 @@ public class TupleSchema implements TupleMetadata {
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder()
+    StringBuilder builder = new StringBuilder()
         .append("[")
         .append(getClass().getSimpleName())
         .append(" ");
-    boolean first = true;
-    for (ColumnMetadata md : nameSpace) {
-      if (! first) {
-        buf.append(", ");
+
+    builder.append(nameSpace.entries().stream()
+      .map(ColumnMetadata::toString)
+      .collect(Collectors.joining(", ")));
+
+    if (hasProperties()) {
+      if (!nameSpace.entries().isEmpty()) {
+        builder.append(", ");
       }
-      buf.append(md.toString());
+      builder.append("properties: ").append(properties());
     }
-    buf.append("]");
-    return buf.toString();
+
+    builder.append("]");
+    return builder.toString();
+  }
+
+  @JsonProperty("properties")
+  @Override
+  public Map<String, String> properties() {
+    return super.properties();
   }
 }

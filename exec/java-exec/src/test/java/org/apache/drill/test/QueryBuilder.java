@@ -366,7 +366,7 @@ public class QueryBuilder {
     }
   }
 
-  public QueryRowSetIterator rowSetIterator( ) {
+  public QueryRowSetIterator rowSetIterator() {
     return new QueryRowSetIterator(client.allocator(), withEventListener());
   }
 
@@ -643,7 +643,7 @@ public class QueryBuilder {
    */
 
   protected String queryPlan(String columnName) throws Exception {
-    Preconditions.checkArgument(queryType == QueryType.SQL, "Can only explan an SQL query.");
+    Preconditions.checkArgument(queryType == QueryType.SQL, "Can only explain an SQL query.");
     final List<QueryDataBatch> results = results();
     final RecordBatchLoader loader = new RecordBatchLoader(client.allocator());
     final StringBuilder builder = new StringBuilder();
@@ -664,7 +664,6 @@ public class QueryBuilder {
         throw new IllegalStateException("Looks like you did not provide an explain plan query, please add EXPLAIN PLAN FOR to the beginning of your query.");
       }
 
-      @SuppressWarnings("resource")
       final ValueVector vv = vw.getValueVector();
       for (int i = 0; i < vv.getAccessor().getValueCount(); i++) {
         final Object o = vv.getAccessor().getObject(i);

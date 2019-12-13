@@ -19,25 +19,36 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedSchemaColumn;
+import org.apache.drill.exec.physical.impl.scan.project.AbstractUnresolvedColumn.UnresolvedWildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionType;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetTestUtils;
+import org.apache.drill.exec.physical.rowSet.project.ImpliedTupleRequest;
+import org.apache.drill.exec.physical.rowSet.project.RequestedTuple;
 import org.apache.drill.exec.physical.rowSet.project.RequestedTuple.RequestedColumn;
 import org.apache.drill.exec.record.metadata.ProjectionType;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 /**
  * Test the level of projection done at the level of the scan as a whole;
  * before knowledge of table "implicit" columns or the specific table schema.
  */
 
+@Category(RowSetTests.class)
 public class TestScanLevelProjection extends SubOperatorTest {
 
   /**
@@ -55,6 +66,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     final ScanLevelProjection scanProj = new ScanLevelProjection(
         RowSetTestUtils.projectList("a", "b", "c"),
         ScanTestUtils.parsers());
+
     assertFalse(scanProj.projectAll());
     assertFalse(scanProj.projectNone());
 
@@ -70,7 +82,20 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(0).nodeType());
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
+
+    // Verify tuple projection
+
+    RequestedTuple outputProj = scanProj.rootProjection();
+    assertEquals(3, outputProj.projections().size());
+    assertNotNull(outputProj.get("a"));
+    assertTrue(outputProj.get("a").isSimple());
+
+    RequestedTuple readerProj = scanProj.readerProjection();
+    assertEquals(3, readerProj.projections().size());
+    assertNotNull(readerProj.get("a"));
+    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.UNPROJECTED, readerProj.projectionType("d"));
   }
 
   /**
@@ -84,6 +109,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     final ScanLevelProjection scanProj = new ScanLevelProjection(
         RowSetTestUtils.projectList("a.x", "b.x", "a.y", "b.y", "c"),
         ScanTestUtils.parsers());
+
     assertFalse(scanProj.projectAll());
     assertFalse(scanProj.projectNone());
 
@@ -94,7 +120,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(0).nodeType());
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
 
     // Map structure
 
@@ -106,6 +132,20 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     final RequestedColumn c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
     assertTrue(c.isSimple());
+
+    // Verify tuple projection
+
+    RequestedTuple outputProj = scanProj.rootProjection();
+    assertEquals(3, outputProj.projections().size());
+    assertNotNull(outputProj.get("a"));
+    assertTrue(outputProj.get("a").isTuple());
+
+    RequestedTuple readerProj = scanProj.readerProjection();
+    assertEquals(3, readerProj.projections().size());
+    assertNotNull(readerProj.get("a"));
+    assertEquals(ProjectionType.TUPLE, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("c"));
+    assertEquals(ProjectionType.UNPROJECTED, readerProj.projectionType("d"));
   }
 
   /**
@@ -118,6 +158,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     final ScanLevelProjection scanProj = new ScanLevelProjection(
         RowSetTestUtils.projectList("a[1]", "a[3]"),
         ScanTestUtils.parsers());
+
     assertFalse(scanProj.projectAll());
     assertFalse(scanProj.projectNone());
 
@@ -126,7 +167,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(0).nodeType());
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
 
     // Map structure
 
@@ -136,10 +177,24 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertTrue(a.hasIndex(1));
     assertFalse(a.hasIndex(2));
     assertTrue(a.hasIndex(3));
+
+    // Verify tuple projection
+
+    RequestedTuple outputProj = scanProj.rootProjection();
+    assertEquals(1, outputProj.projections().size());
+    assertNotNull(outputProj.get("a"));
+    assertTrue(outputProj.get("a").isArray());
+
+    RequestedTuple readerProj = scanProj.readerProjection();
+    assertEquals(1, readerProj.projections().size());
+    assertNotNull(readerProj.get("a"));
+    assertEquals(ProjectionType.ARRAY, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.UNPROJECTED, readerProj.projectionType("c"));
   }
 
   /**
-   * Simulate a SELECT * query by passing "*" as a column name.
+   * Simulate a SELECT * query by passing "**" (Drill's internal representation
+   * of the wildcard) as a column name.
    */
 
   @Test
@@ -162,7 +217,18 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertEquals(UnresolvedColumn.WILDCARD, scanProj.columns().get(0).nodeType());
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedWildcardColumn);
+
+    // Verify tuple projection
+
+    RequestedTuple outputProj = scanProj.rootProjection();
+    assertEquals(1, outputProj.projections().size());
+    assertNotNull(outputProj.get("**"));
+    assertTrue(outputProj.get("**").isWildcard());
+
+    RequestedTuple readerProj = scanProj.readerProjection();
+    assertTrue(readerProj instanceof ImpliedTupleRequest);
+    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("a"));
   }
 
   /**
@@ -179,38 +245,62 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertFalse(scanProj.projectAll());
     assertTrue(scanProj.projectNone());
     assertEquals(0, scanProj.requestedCols().size());
+
+    // Verify tuple projection
+
+    RequestedTuple outputProj = scanProj.rootProjection();
+    assertEquals(0, outputProj.projections().size());
+
+    RequestedTuple readerProj = scanProj.readerProjection();
+    assertTrue(readerProj instanceof ImpliedTupleRequest);
+    assertEquals(ProjectionType.UNPROJECTED, readerProj.projectionType("a"));
   }
 
   /**
-   * Can't include both a wildcard and a column name.
+   * Can include both a wildcard and a column name. The Project
+   * operator will fill in the column, the scan framework just ignores
+   * the extra column.
    */
 
   @Test
-  public void testErrorWildcardAndColumns() {
-    try {
-      new ScanLevelProjection(
+  public void testWildcardAndColumns() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
           RowSetTestUtils.projectList(SchemaPath.DYNAMIC_STAR, "a"),
           ScanTestUtils.parsers());
-      fail();
-    } catch (final IllegalArgumentException e) {
-      // Expected
-    }
+
+    assertTrue(scanProj.projectAll());
+    assertFalse(scanProj.projectNone());
+    assertEquals(2, scanProj.requestedCols().size());
+    assertEquals(1, scanProj.columns().size());
+
+    // Verify tuple projection
+
+    RequestedTuple outputProj = scanProj.rootProjection();
+    assertEquals(2, outputProj.projections().size());
+    assertNotNull(outputProj.get("**"));
+    assertTrue(outputProj.get("**").isWildcard());
+    assertNotNull(outputProj.get("a"));
+
+    RequestedTuple readerProj = scanProj.readerProjection();
+    assertTrue(readerProj instanceof ImpliedTupleRequest);
+    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.UNSPECIFIED, readerProj.projectionType("c"));
   }
 
   /**
-   * Can't include both a column name and a wildcard.
+   * Test a column name and a wildcard.
    */
 
   @Test
-  public void testErrorColumnAndWildcard() {
-    try {
-      new ScanLevelProjection(
+  public void testColumnAndWildcard() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
           RowSetTestUtils.projectList("a", SchemaPath.DYNAMIC_STAR),
           ScanTestUtils.parsers());
-      fail();
-    } catch (final IllegalArgumentException e) {
-      // Expected
-    }
+
+    assertTrue(scanProj.projectAll());
+    assertFalse(scanProj.projectNone());
+    assertEquals(2, scanProj.requestedCols().size());
+    assertEquals(1, scanProj.columns().size());
   }
 
   /**
@@ -230,5 +320,80 @@ public class TestScanLevelProjection extends SubOperatorTest {
     } catch (final UserException e) {
       // Expected
     }
+  }
+
+  @Test
+  public void testEmptyOutputSchema() {
+    TupleMetadata outputSchema = new SchemaBuilder().buildSchema();
+
+    // Simulate SELECT a
+
+    final ScanLevelProjection scanProj = new ScanLevelProjection(
+        RowSetTestUtils.projectList("a"),
+        ScanTestUtils.parsers(),
+        outputSchema);
+
+    assertEquals(ScanProjectionType.EXPLICIT, scanProj.projectionType());
+
+    assertEquals(1, scanProj.columns().size());
+    assertEquals("a", scanProj.columns().get(0).name());
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedColumn);
+  }
+
+  @Test
+  public void testOutputSchemaWildcard() {
+    TupleMetadata outputSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.BIGINT)
+        .buildSchema();
+
+    final ScanLevelProjection scanProj = new ScanLevelProjection(
+        RowSetTestUtils.projectAll(),
+        ScanTestUtils.parsers(),
+        outputSchema);
+
+    assertEquals(ScanProjectionType.SCHEMA_WILDCARD, scanProj.projectionType());
+
+    assertEquals(2, scanProj.columns().size());
+    assertEquals("a", scanProj.columns().get(0).name());
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedSchemaColumn);
+    assertEquals("b", scanProj.columns().get(1).name());
+    assertTrue(scanProj.columns().get(1) instanceof UnresolvedSchemaColumn);
+
+    RequestedTuple readerProj = scanProj.readerProjection();
+    assertEquals(2, readerProj.projections().size());
+    assertEquals(ProjectionType.SCALAR, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.SCALAR, readerProj.projectionType("b"));
+  }
+
+  /**
+   * Wildcard projection with a strict schema is the same as a non-strict
+   * schema, except that the projection type is different.
+   */
+  @Test
+  public void testStrictOutputSchemaWildcard() {
+    TupleMetadata outputSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.BIGINT)
+        .buildSchema();
+    outputSchema.setProperty(TupleMetadata.IS_STRICT_SCHEMA_PROP, Boolean.TRUE.toString());
+
+    final ScanLevelProjection scanProj = new ScanLevelProjection(
+        RowSetTestUtils.projectAll(),
+        ScanTestUtils.parsers(),
+        outputSchema);
+
+    assertEquals(ScanProjectionType.STRICT_SCHEMA_WILDCARD, scanProj.projectionType());
+
+    assertEquals(2, scanProj.columns().size());
+    assertEquals("a", scanProj.columns().get(0).name());
+    assertTrue(scanProj.columns().get(0) instanceof UnresolvedSchemaColumn);
+    assertEquals("b", scanProj.columns().get(1).name());
+    assertTrue(scanProj.columns().get(1) instanceof UnresolvedSchemaColumn);
+
+    RequestedTuple readerProj = scanProj.readerProjection();
+    assertEquals(2, readerProj.projections().size());
+    assertEquals(ProjectionType.SCALAR, readerProj.projectionType("a"));
+    assertEquals(ProjectionType.SCALAR, readerProj.projectionType("b"));
   }
 }

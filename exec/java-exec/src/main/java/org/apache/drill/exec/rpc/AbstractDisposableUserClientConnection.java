@@ -18,8 +18,6 @@
 package org.apache.drill.exec.rpc;
 
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.exec.proto.GeneralRPCProtos.Ack;
 import org.apache.drill.exec.proto.UserBitShared.DrillPBError;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
@@ -43,7 +41,7 @@ public abstract class AbstractDisposableUserClientConnection implements UserClie
 
   protected volatile DrillPBError error;
 
-  protected volatile UserException exception;
+  protected String queryState;
 
   /**
    * Wait until the query has completed or timeout is passed.
@@ -61,9 +59,6 @@ public abstract class AbstractDisposableUserClientConnection implements UserClie
    */
   public void await() throws Exception {
     latch.await();
-    if (exception != null) {
-      throw exception;
-    }
   }
 
   @Override
@@ -73,6 +68,7 @@ public abstract class AbstractDisposableUserClientConnection implements UserClie
 
     // Release the wait latch if the query is terminated.
     final QueryState state = result.getQueryState();
+    queryState = state.toString();
     final QueryId queryId = result.getQueryId();
 
     if (logger.isDebugEnabled()) {
@@ -82,7 +78,6 @@ public abstract class AbstractDisposableUserClientConnection implements UserClie
     switch (state) {
       case FAILED:
         error = result.getError(0);
-        exception = new UserRemoteException(error);
         latch.countDown();
         break;
       case CANCELED:
@@ -103,5 +98,9 @@ public abstract class AbstractDisposableUserClientConnection implements UserClie
    */
   public DrillPBError getError() {
     return error;
+  }
+
+  public String getQueryState() {
+    return queryState;
   }
 }

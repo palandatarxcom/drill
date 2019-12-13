@@ -174,7 +174,6 @@ public class DrillRestServer extends ResourceConfig {
     @Inject
     EventExecutor executor;
 
-    @SuppressWarnings("resource")
     @Override
     public WebUserConnection provide() {
       final HttpSession session = request.getSession();
@@ -251,7 +250,6 @@ public class DrillRestServer extends ResourceConfig {
     @Inject
     EventExecutor executor;
 
-    @SuppressWarnings("resource")
     @Override
     public WebUserConnection provide() {
       final DrillbitContext drillbitContext = workManager.getContext();
@@ -313,7 +311,7 @@ public class DrillRestServer extends ResourceConfig {
      * @return session user principal
      */
     private Principal createSessionUserPrincipal(DrillConfig config, HttpServletRequest request) {
-      if (WebServer.isImpersonationOnlyEnabled(config)) {
+      if (WebServer.isOnlyImpersonationEnabled(config)) {
         final String userName = request.getHeader("User-Name");
         if (!Strings.isNullOrEmpty(userName)) {
           return new DrillUserPrincipal(userName, true);

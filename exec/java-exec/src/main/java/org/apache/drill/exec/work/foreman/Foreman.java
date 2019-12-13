@@ -38,7 +38,6 @@ import org.apache.drill.exec.physical.base.FragmentRoot;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.planner.fragment.Fragment;
 import org.apache.drill.exec.planner.fragment.MakeFragmentsVisitor;
-import org.apache.drill.exec.planner.fragment.SimpleParallelizer;
 import org.apache.drill.exec.planner.sql.DirectPlan;
 import org.apache.drill.exec.planner.sql.DrillSqlWorker;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
@@ -144,6 +143,11 @@ public class Foreman implements Runnable {
     this.closeFuture = initiatingClient.getChannelClosureFuture();
     closeFuture.addListener(closeListener);
 
+    // Apply AutoLimit on resultSet (Usually received via REST APIs)
+    final int autoLimit = queryRequest.getAutolimitRowcount();
+    if (autoLimit > 0) {
+      connection.getSession().getOptions().setLocalOption(ExecConstants.QUERY_MAX_ROWS, autoLimit);
+    }
     this.queryContext = new QueryContext(connection.getSession(), drillbitContext, queryId);
     this.queryManager = new QueryManager(queryId, queryRequest, drillbitContext.getStoreProvider(),
         drillbitContext.getClusterCoordinator(), this);
@@ -240,7 +244,7 @@ public class Foreman implements Runnable {
     try {
       /*
        Check if the foreman is ONLINE. If not don't accept any new queries.
-      */
+       */
       if (!drillbitContext.isForemanOnline()) {
         throw new ForemanException("Query submission failed since Foreman is shutting down.");
       }
@@ -294,7 +298,8 @@ public class Foreman implements Runnable {
          */
         FailureUtils.unrecoverableFailure(e, "Unable to handle out of memory condition in Foreman.", EXIT_CODE_HEAP_OOM);
       }
-
+    } catch (UserException e) {
+      queryStateProcessor.moveToState(QueryState.FAILED, e);
     } catch (AssertionError | Exception ex) {
       queryStateProcessor.moveToState(QueryState.FAILED,
           new ForemanException("Unexpected exception during fragment initialization: " + ex.getMessage(), ex));
@@ -408,7 +413,7 @@ public class Foreman implements Runnable {
     validatePlan(plan);
 
     queryRM.visitAbstractPlan(plan);
-    final QueryWorkUnit work = getQueryWorkUnit(plan);
+    final QueryWorkUnit work = getQueryWorkUnit(plan, queryRM);
     if (enableRuntimeFilter) {
       runtimeFilterRouter = new RuntimeFilterRouter(work, drillbitContext);
       runtimeFilterRouter.collectRuntimeFilterParallelAndControlInfo();
@@ -463,7 +468,7 @@ public class Foreman implements Runnable {
     } catch (IOException e) {
       throw new ExecutionSetupException(String.format("Unable to parse FragmentRoot from fragment: %s", rootFragment.getFragmentJson()));
     }
-    queryRM.setCost(rootOperator.getCost());
+    queryRM.setCost(rootOperator.getCost().getOutputRowCount());
 
     fragmentsRunner.setFragmentsInfo(planFragments, rootFragment, rootOperator);
 
@@ -505,7 +510,7 @@ public class Foreman implements Runnable {
     } catch (Exception e) {
       queryStateProcessor.moveToState(QueryState.FAILED, e);
     } finally {
-       /*
+      /*
        * Begin accepting external events.
        *
        * Doing this here in the finally clause will guarantee that it occurs. Otherwise, if there
@@ -561,14 +566,18 @@ public class Foreman implements Runnable {
     }
   }
 
-  private QueryWorkUnit getQueryWorkUnit(final PhysicalPlan plan) throws ExecutionSetupException {
+  private QueryWorkUnit getQueryWorkUnit(final PhysicalPlan plan,
+                                         final QueryResourceManager rm) throws ExecutionSetupException {
+
     final PhysicalOperator rootOperator = plan.getSortedOperators(false).iterator().next();
+
     final Fragment rootFragment = rootOperator.accept(MakeFragmentsVisitor.INSTANCE, null);
-    final SimpleParallelizer parallelizer = new SimpleParallelizer(queryContext);
-    return parallelizer.getFragments(
-        queryContext.getOptions().getOptionList(), queryContext.getCurrentEndpoint(),
-        queryId, queryContext.getOnlineEndpoints(), rootFragment,
-        initiatingClient.getSession(), queryContext.getQueryContextInfo());
+
+    return rm.getParallelizer(plan.getProperties().hasResourcePlan).generateWorkUnit(queryContext.getOptions().getOptionList(),
+                                                                        queryContext.getCurrentEndpoint(),
+                                                                        queryId, queryContext.getOnlineEndpoints(),
+                                                                        rootFragment, initiatingClient.getSession(),
+                                                                        queryContext.getQueryContextInfo());
   }
 
   private void logWorkUnit(QueryWorkUnit queryWorkUnit) {
@@ -592,7 +601,6 @@ public class Foreman implements Runnable {
     return new BasicOptimizer(queryContext, initiatingClient).optimize(
         new BasicOptimizer.BasicOptimizationContext(queryContext), plan);
   }
-
 
   /**
    * Manages the end-state processing for Foreman.
@@ -726,7 +734,6 @@ public class Foreman implements Runnable {
       }
     }
 
-    @SuppressWarnings("resource")
     @Override
     public void close() {
       Preconditions.checkState(!isClosed);
@@ -776,7 +783,11 @@ public class Foreman implements Runnable {
       final UserException uex;
       if (resultException != null) {
         final boolean verbose = queryContext.getOptions().getOption(ExecConstants.ENABLE_VERBOSE_ERRORS_KEY).bool_val;
-        uex = UserException.systemError(resultException).addIdentity(queryContext.getCurrentEndpoint()).build(logger);
+        if (resultException instanceof UserException) {
+          uex = (UserException) resultException;
+        } else {
+          uex = UserException.systemError(resultException).addIdentity(queryContext.getCurrentEndpoint()).build(logger);
+        }
         resultBuilder.addError(uex.getOrCreatePBError(verbose));
       } else {
         uex = null;
@@ -784,8 +795,8 @@ public class Foreman implements Runnable {
 
       // Debug option: write query profile before sending final results so that
       // the client can be certain the profile exists.
-
-      if (profileOption == ProfileOption.SYNC) {
+      final boolean skipProfileWrite = queryContext.isSkipProfileWrite();
+      if (profileOption == ProfileOption.SYNC && !skipProfileWrite) {
         queryManager.writeFinalProfile(uex);
       }
 
@@ -815,7 +826,7 @@ public class Foreman implements Runnable {
       // storage write; query completion occurs in parallel with profile
       // persistence.
 
-      if (profileOption == ProfileOption.ASYNC) {
+      if (profileOption == ProfileOption.ASYNC && !skipProfileWrite) {
         queryManager.writeFinalProfile(uex);
       }
 
@@ -856,7 +867,7 @@ public class Foreman implements Runnable {
     @Override
     public void failed(final RpcException ex) {
       logger.info("Failure while trying communicate query result to initiating client. " +
-              "This would happen if a client is disconnected before response notice can be sent.", ex);
+          "This would happen if a client is disconnected before response notice can be sent.", ex);
     }
 
     @Override

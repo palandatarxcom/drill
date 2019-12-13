@@ -196,7 +196,7 @@ public class PlannerSettings implements Context{
    */
   public static final String ENABLE_UNNEST_LATERAL_KEY = "planner.enable_unnest_lateral";
   public static final BooleanValidator ENABLE_UNNEST_LATERAL = new BooleanValidator(ENABLE_UNNEST_LATERAL_KEY,
-      new OptionDescription("Enables lateral join functionality. Default is false. (Drill 1.14+)"));
+      new OptionDescription("Enables lateral join functionality. Default is true. (Drill 1.15+)"));
 
   /*
      Enables rules that re-write query joins in the most optimal way.
@@ -226,6 +226,8 @@ public class PlannerSettings implements Context{
   public static final String FORCE_2PHASE_AGGR_KEY = "planner.force_2phase_aggr";
   public static final BooleanValidator FORCE_2PHASE_AGGR = new BooleanValidator(FORCE_2PHASE_AGGR_KEY,
       new OptionDescription("Forces the cost-based query planner to generate a two phase aggregation for an aggregate operator."));
+
+  public static final BooleanValidator STATISTICS_USE = new BooleanValidator("planner.statistics.use", null);
 
   public OptionManager options = null;
   public FunctionImplementationRegistry functionImplementationRegistry = null;
@@ -465,6 +467,10 @@ public class PlannerSettings implements Context{
 
   public double getIndexStatsRowCountScalingFactor() {
     return options.getOption(INDEX_STATS_ROWCOUNT_SCALING_FACTOR);
+  }
+
+  public boolean useStatistics() {
+    return options.getOption(STATISTICS_USE);
   }
 
   @Override

@@ -266,8 +266,7 @@ public abstract class InfoSchemaRecordGenerator<S> {
    */
   public void visitTables(String schemaPath, SchemaPlus schema) {
     final AbstractSchema drillSchema = schema.unwrap(AbstractSchema.class);
-    final List<String> tableNames = Lists.newArrayList(schema.getTableNames());
-    for(Pair<String, ? extends Table> tableNameToTable : drillSchema.getTablesByNames(tableNames)) {
+    for (Pair<String, ? extends Table> tableNameToTable : drillSchema.getTablesByNames(schema.getTableNames())) {
       final String tableName = tableNameToTable.getKey();
       final Table table = tableNameToTable.getValue();
       final TableType tableType = table.getJdbcTableType();
@@ -338,26 +337,16 @@ public abstract class InfoSchemaRecordGenerator<S> {
 
     @Override
     public void visitTables(String schemaPath, SchemaPlus schema) {
-      final AbstractSchema drillSchema = schema.unwrap(AbstractSchema.class);
-      final List<Pair<String, TableType>> tableNamesAndTypes = drillSchema
-          .getTableNamesAndTypes(optionManager.getOption(ExecConstants.ENABLE_BULK_LOAD_TABLE_LIST),
-              (int)optionManager.getOption(ExecConstants.BULK_LOAD_TABLE_LIST_BULK_SIZE));
-
-      for (Pair<String, TableType> tableNameAndType : tableNamesAndTypes) {
-        final String tableName = tableNameAndType.getKey();
-        final TableType tableType = tableNameAndType.getValue();
-        // Visit the table, and if requested ...
-        if (shouldVisitTable(schemaPath, tableName, tableType)) {
-          visitTableWithType(schemaPath, tableName, tableType);
-        }
-      }
+      schema.unwrap(AbstractSchema.class).getTableNamesAndTypes()
+          .forEach(nameAndType -> attemptVisitTableWithType(schemaPath, nameAndType.getKey(), nameAndType.getValue()));
     }
 
-    private void visitTableWithType(String schemaName, String tableName, TableType type) {
-      Preconditions
-          .checkNotNull(type, "Error. Type information for table %s.%s provided is null.", schemaName,
-              tableName);
-      records.add(new Records.Table(IS_CATALOG_NAME, schemaName, tableName, type.toString()));
+    private void attemptVisitTableWithType(final String schemaName, final String tableName,
+                                           final TableType type) {
+      // Visit the table if requested ...
+      if (shouldVisitTable(schemaName, tableName, type)) {
+        records.add(new Records.Table(IS_CATALOG_NAME, schemaName, tableName, type.toString()));
+      }
     }
 
     @Override
@@ -435,7 +424,8 @@ public abstract class InfoSchemaRecordGenerator<S> {
           String defaultLocation = wsSchema.getDefaultLocation();
           FileSystem fs = wsSchema.getFS();
           boolean recursive = optionManager.getBoolean(ExecConstants.LIST_FILES_RECURSIVELY);
-          FileSystemUtil.listAllSafe(fs, new Path(defaultLocation), recursive).forEach(
+          // add URI to the path to ensure that directory objects are skipped (see S3AFileSystem.listStatus method)
+          FileSystemUtil.listAllSafe(fs, new Path(fs.getUri().toString(), defaultLocation), recursive).forEach(
               fileStatus -> records.add(new Records.File(schemaName, wsSchema, fileStatus))
           );
         }

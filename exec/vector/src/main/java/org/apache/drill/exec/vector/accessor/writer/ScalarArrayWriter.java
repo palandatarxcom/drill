@@ -22,8 +22,10 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriterImpl.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.joda.time.Period;
 
@@ -60,26 +62,32 @@ public class ScalarArrayWriter extends BaseArrayWriter {
     public final void nextElement() { next(); }
   }
 
-  private final BaseScalarWriter elementWriter;
+  private final ScalarWriter elementWriter;
 
   public ScalarArrayWriter(ColumnMetadata schema,
-      RepeatedValueVector vector, BaseScalarWriter elementWriter) {
+      RepeatedValueVector vector, BaseScalarWriter baseElementWriter,
+      ColumnConversionFactory conversionFactory) {
     super(schema, vector.getOffsetVector(),
-        new ScalarObjectWriter(elementWriter));
-    this.elementWriter = elementWriter;
+        new ScalarObjectWriter(baseElementWriter, conversionFactory));
+
+    // Save the writer from the scalar object writer created above
+    // which may have wrapped the element writer in a type convertor.
+
+    this.elementWriter = elementObjWriter.scalar();
   }
 
   public static ArrayObjectWriter build(ColumnMetadata schema,
-      RepeatedValueVector repeatedVector, BaseScalarWriter elementWriter) {
+      RepeatedValueVector repeatedVector, BaseScalarWriter baseElementWriter,
+      ColumnConversionFactory conversionFactory) {
     return new ArrayObjectWriter(
-        new ScalarArrayWriter(schema, repeatedVector, elementWriter));
+        new ScalarArrayWriter(schema, repeatedVector, baseElementWriter, conversionFactory));
   }
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
     elementIndex = new ScalarElementWriterIndex();
     super.bindIndex(index);
-    elementWriter.bindIndex(elementIndex);
+    elementObjWriter.events().bindIndex(elementIndex);
   }
 
   @Override
@@ -110,21 +118,21 @@ public class ScalarArrayWriter extends BaseArrayWriter {
 
       return;
     }
-    String objClass = array.getClass().getName();
+    final String objClass = array.getClass().getName();
     if (! objClass.startsWith("[")) {
       throw new IllegalArgumentException(
           String.format("Argument must be an array. Column `%s`, value = %s",
-              schema.name(), array.toString()));
+              schema().name(), array.toString()));
     }
 
     // Figure out type
 
-    char second = objClass.charAt(1);
+    final char second = objClass.charAt(1);
     switch ( second ) {
     case  '[':
       // bytes is represented as an array of byte arrays.
 
-      char third = objClass.charAt(2);
+      final char third = objClass.charAt(2);
       switch (third) {
       case 'B':
         setBytesArray((byte[][]) array);
@@ -132,7 +140,7 @@ public class ScalarArrayWriter extends BaseArrayWriter {
       default:
         throw new IllegalArgumentException(
             String.format("Unknown Java array type: %s, for column `%s`",
-                objClass, schema.name()));
+                objClass, schema().name()));
       }
       break;
     case  'B':
@@ -157,11 +165,11 @@ public class ScalarArrayWriter extends BaseArrayWriter {
       setBooleanArray((boolean[]) array);
       break;
     case 'L':
-      int posn = objClass.indexOf(';');
+      final int posn = objClass.indexOf(';');
 
       // If the array is of type Object, then we have no type info.
 
-      String memberClassName = objClass.substring(2, posn);
+      final String memberClassName = objClass.substring(2, posn);
       if (memberClassName.equals(String.class.getName())) {
         setStringArray((String[]) array);
       } else if (memberClassName.equals(Period.class.getName())) {
@@ -215,7 +223,7 @@ public class ScalarArrayWriter extends BaseArrayWriter {
 
   public void setIntObjectArray(Integer[] value) {
     for (int i = 0; i < value.length; i++) {
-      Integer element = value[i];
+      final Integer element = value[i];
       if (element == null) {
         elementWriter.setNull();
       } else {
@@ -232,7 +240,7 @@ public class ScalarArrayWriter extends BaseArrayWriter {
 
   public void setLongObjectArray(Long[] value) {
     for (int i = 0; i < value.length; i++) {
-      Long element = value[i];
+      final Long element = value[i];
       if (element == null) {
         elementWriter.setNull();
       } else {
@@ -255,7 +263,7 @@ public class ScalarArrayWriter extends BaseArrayWriter {
 
   public void setDoubleObjectArray(Double[] value) {
     for (int i = 0; i < value.length; i++) {
-      Double element = value[i];
+      final Double element = value[i];
       if (element == null) {
         elementWriter.setNull();
       } else {

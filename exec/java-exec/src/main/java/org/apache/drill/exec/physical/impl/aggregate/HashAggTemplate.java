@@ -49,7 +49,6 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.ops.OperatorStats;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.config.HashAggregate;
-import org.apache.drill.exec.physical.impl.common.AbstractSpilledPartitionMetadata;
 import org.apache.drill.exec.physical.impl.common.ChainedHashTable;
 import org.apache.drill.exec.physical.impl.common.CodeGenMemberInjector;
 import org.apache.drill.exec.physical.impl.common.HashTable;
@@ -84,7 +83,6 @@ import org.apache.drill.exec.vector.ObjectVector;
 import org.apache.drill.exec.vector.ValueVector;
 
 import org.apache.drill.exec.vector.VariableWidthVector;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import static org.apache.drill.exec.physical.impl.common.HashTable.BATCH_MASK;
 import static org.apache.drill.exec.record.RecordBatch.MAX_BATCH_ROW_COUNT;
@@ -149,7 +147,7 @@ public abstract class HashAggTemplate implements HashAggregator {
   private int outBatchIndex[];
 
   // For handling spilling
-  private HashAggUpdater updater = new HashAggUpdater();
+  private HashAggUpdater updater;
   private SpilledState<HashAggSpilledPartition> spilledState = new SpilledState<>();
   private SpillSet spillSet;
   SpilledRecordbatch newIncoming; // when reading a spilled file - work like an "incoming"
@@ -170,59 +168,6 @@ public abstract class HashAggTemplate implements HashAggregator {
 
   private OperatorStats stats = null;
   private HashTableStats htStats = new HashTableStats();
-
-  public static class HashAggSpilledPartition extends AbstractSpilledPartitionMetadata {
-    private final int spilledBatches;
-    private final String spillFile;
-
-    public HashAggSpilledPartition(final int cycle,
-                                   final int originPartition,
-                                   final int prevOriginPartition,
-                                   final int spilledBatches,
-                                   final String spillFile) {
-      super(cycle, originPartition, prevOriginPartition);
-
-      this.spilledBatches = spilledBatches;
-      this.spillFile = Preconditions.checkNotNull(spillFile);
-    }
-
-    public int getSpilledBatches() {
-      return spilledBatches;
-    }
-
-    public String getSpillFile() {
-      return spillFile;
-    }
-
-    @Override
-    public String makeDebugString() {
-      return String.format("Start reading spilled partition %d (prev %d) from cycle %d.",
-        this.getOriginPartition(), this.getPrevOriginPartition(), this.getCycle());
-    }
-  }
-
-  public class HashAggUpdater implements SpilledState.Updater {
-
-    @Override
-    public void cleanup() {
-      this.cleanup();
-    }
-
-    @Override
-    public String getFailureMessage() {
-      return null;
-    }
-
-    @Override
-    public long getMemLimit() {
-      return allocator.getLimit();
-    }
-
-    @Override
-    public boolean hasPartitionLimit() {
-      return false;
-    }
-  }
 
   public enum Metric implements MetricDef {
 
@@ -269,7 +214,6 @@ public abstract class HashAggTemplate implements HashAggregator {
       return (maxOccupiedIdx + 1);
     }
 
-    @SuppressWarnings("resource")
     public BatchHolder(int batchRowCount) {
 
       aggrValuesContainer = new VectorContainer();
@@ -375,6 +319,7 @@ public abstract class HashAggTemplate implements HashAggregator {
     this.context = context;
     this.stats = oContext.getStats();
     this.allocator = oContext.getAllocator();
+    this.updater = new HashAggUpdater(allocator);
     this.oContext = oContext;
     this.incoming = incoming;
     this.outgoing = outgoing;
@@ -440,6 +385,7 @@ public abstract class HashAggTemplate implements HashAggregator {
    *  Delayed setup are the parts from setup() that can only be set after actual data arrives in incoming
    *  This data is used to compute the number of partitions.
    */
+  @SuppressWarnings("unchecked")
   private void delayedSetup() {
 
     final boolean fallbackEnabled = context.getOptions().getOption(ExecConstants.HASHAGG_FALLBACK_ENABLED_KEY).bool_val;
@@ -840,7 +786,6 @@ public abstract class HashAggTemplate implements HashAggregator {
     long allocatedBefore = allocator.getAllocatedMemory();
 
     while (outgoingIter.hasNext()) {
-      @SuppressWarnings("resource")
       ValueVector vv = outgoingIter.next().getValueVector();
 
       AllocationHelper.allocatePrecomputedChildCount(vv, records, maxColumnWidth, 0);
@@ -1114,6 +1059,7 @@ public abstract class HashAggTemplate implements HashAggregator {
    *
    * @return iteration outcome (e.g., OK, NONE ...)
    */
+  @SuppressWarnings("unused")
   @Override
   public AggIterOutcome outputCurrentBatch() {
 

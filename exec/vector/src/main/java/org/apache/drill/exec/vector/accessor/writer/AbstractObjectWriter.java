@@ -25,6 +25,8 @@ import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
+import org.apache.drill.exec.vector.accessor.convert.AbstractWriteConverter;
+import org.apache.drill.exec.vector.accessor.convert.ColumnConversionFactory;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
@@ -36,9 +38,6 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
  */
 
 public abstract class AbstractObjectWriter implements ObjectWriter {
-
-  @Override
-  public ColumnMetadata schema() { return baseWriter().schema(); }
 
   @Override
   public ScalarWriter scalar() {
@@ -60,42 +59,35 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
     throw new UnsupportedOperationException();
   }
 
+  public abstract ColumnWriter writer();
+
+  @Override
   public abstract WriterEvents events();
 
-  public ColumnWriter baseWriter() {
-    return (ColumnWriter) events();
-  }
+  @Override
+  public ColumnMetadata schema() { return writer().schema(); }
 
   @Override
-  public ObjectType type() { return baseWriter().type(); }
+  public ObjectType type() { return writer().type(); }
 
   @Override
-  public boolean nullable() { return baseWriter().nullable(); }
+  public boolean nullable() { return writer().nullable(); }
 
   @Override
-  public void setNull() {
-    baseWriter().setNull();
-  }
+  public void setNull() { writer().setNull(); }
 
   @Override
-  public void setObject(Object value) {
-    baseWriter().setObject(value);
-  }
+  public void setObject(Object value) { writer().setObject(value); }
 
   public abstract void dump(HierarchicalFormatter format);
 
-  @Override
-  public int rowStartIndex() {
-    return baseWriter().rowStartIndex();
-  }
-
-  @Override
-  public int lastWriteIndex() {
-    return baseWriter().lastWriteIndex();
-  }
-
-  @Override
-  public int writeIndex() {
-    return baseWriter().writeIndex();
+  protected static ScalarWriter convertWriter(
+      ColumnConversionFactory conversionFactory,
+      ScalarWriter baseWriter) {
+    if (conversionFactory == null) {
+      return baseWriter;
+    }
+    final AbstractWriteConverter shim = conversionFactory.newWriter(baseWriter);
+    return shim == null ? baseWriter : shim;
   }
 }

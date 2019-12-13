@@ -17,10 +17,22 @@
  */
 package org.apache.drill.exec.record.metadata;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.schema.parser.SchemaExprParser;
+import org.joda.time.format.DateTimeFormatter;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Abstract definition of column metadata. Allows applications to create
@@ -34,11 +46,17 @@ import org.apache.drill.exec.record.MaterializedField;
  * since maps (and the row itself) will, by definition, differ between
  * the two views.
  */
-
-public abstract class AbstractColumnMetadata implements ColumnMetadata {
+@JsonAutoDetect(
+  fieldVisibility = JsonAutoDetect.Visibility.NONE,
+  getterVisibility = JsonAutoDetect.Visibility.NONE,
+  isGetterVisibility = JsonAutoDetect.Visibility.NONE,
+  setterVisibility = JsonAutoDetect.Visibility.NONE)
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+@JsonPropertyOrder({"name", "type", "mode", "format", "default", "properties"})
+public abstract class AbstractColumnMetadata extends AbstractPropertied implements ColumnMetadata {
 
   // Capture the key schema information. We cannot use the MaterializedField
-  // or MajorType because then encode child information that we encode here
+  // or MajorType because they encode child information that we encode here
   // as a child schema. Keeping the two in sync is nearly impossible.
 
   protected final String name;
@@ -46,25 +64,27 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
   protected final DataMode mode;
   protected final int precision;
   protected final int scale;
-  protected boolean projected = true;
 
-  /**
-   * Predicted number of elements per array entry. Default is
-   * taken from the often hard-coded value of 10.
-   */
-
-  protected int expectedElementCount = 1;
+  @JsonCreator
+  public static AbstractColumnMetadata createColumnMetadata(@JsonProperty("name") String name,
+                                                            @JsonProperty("type") String type,
+                                                            @JsonProperty("mode") DataMode mode,
+                                                            @JsonProperty("properties") Map<String, String> properties) {
+    ColumnMetadata columnMetadata = SchemaExprParser.parseColumn(name, type, mode);
+    columnMetadata.setProperties(properties);
+    return (AbstractColumnMetadata) columnMetadata;
+  }
 
   public AbstractColumnMetadata(MaterializedField schema) {
-    name = schema.getName();
-    final MajorType majorType = schema.getType();
+    this(schema.getName(), schema.getType());
+  }
+
+  public AbstractColumnMetadata(String name, MajorType majorType) {
+    this.name = name;
     type = majorType.getMinorType();
     mode = majorType.getMode();
     precision = majorType.getPrecision();
     scale = majorType.getScale();
-    if (isArray()) {
-      expectedElementCount = DEFAULT_ARRAY_SIZE;
-    }
   }
 
   public AbstractColumnMetadata(String name, MinorType type, DataMode mode) {
@@ -73,22 +93,21 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
     this.mode = mode;
     precision = 0;
     scale = 0;
-    if (isArray()) {
-      expectedElementCount = DEFAULT_ARRAY_SIZE;
-    }
   }
 
   public AbstractColumnMetadata(AbstractColumnMetadata from) {
+    super(from);
     name = from.name;
     type = from.type;
     mode = from.mode;
     precision = from.precision;
     scale = from.scale;
-    expectedElementCount = from.expectedElementCount;
   }
 
-  protected void bind(TupleSchema parentTuple) { }
+  @Override
+  public void bind(TupleMetadata parentTuple) { }
 
+  @JsonProperty("name")
   @Override
   public String name() { return name; }
 
@@ -103,6 +122,7 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
         .build();
   }
 
+  @JsonProperty("mode")
   @Override
   public DataMode mode() { return mode; }
 
@@ -135,12 +155,16 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
 
   @Override
   public boolean isVariableWidth() {
-    final MinorType type = type();
-    return type == MinorType.VARCHAR || type == MinorType.VAR16CHAR || type == MinorType.VARBINARY;
+    return Types.isVarWidthType(type());
   }
 
   @Override
   public boolean isEquivalent(ColumnMetadata other) {
+
+    // TODO: This converts each column to a MaterializedField in
+    // order to do the comparison. This is done to avoid duplicating
+    // the checks. Consider doing checks here at some point.
+
     return schema().isEquivalent(other.schema());
   }
 
@@ -163,20 +187,81 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
     // makes an error.
 
     if (isArray()) {
-      expectedElementCount = Math.max(1, childCount);
+      PropertyAccessor.set(this, EXPECTED_CARDINALITY_PROP, Math.max(1, childCount));
     }
   }
 
   @Override
-  public int expectedElementCount() { return expectedElementCount; }
-
-  @Override
-  public void setProjected(boolean projected) {
-    this.projected = projected;
+  public int expectedElementCount() {
+    if (isArray()) {
+      // Not set means default size
+      return PropertyAccessor.getInt(this, EXPECTED_CARDINALITY_PROP, DEFAULT_ARRAY_SIZE);
+    } else {
+      // Cardinality always 1 for optional, repeated modes
+      return 1;
+    }
   }
 
   @Override
-  public boolean isProjected() { return projected; }
+  public void setProjected(boolean projected) {
+    if (projected) {
+      // Projected is the default
+      setProperty(PROJECTED_PROP, null);
+    } else {
+      PropertyAccessor.set(this, PROJECTED_PROP, projected);
+    }
+  }
+
+  @Override
+  public boolean isProjected() {
+    return PropertyAccessor.getBoolean(this, PROJECTED_PROP, true);
+  }
+
+  @Override
+  public void setFormat(String value) {
+    setProperty(FORMAT_PROP, value);
+  }
+
+  @Override
+  public String format() {
+    return property(FORMAT_PROP);
+  }
+
+  @Override
+  public DateTimeFormatter dateTimeFormatter() {
+    throw new UnsupportedOperationException("Date/time not supported for non-scalar columns");
+  }
+
+  @Override
+  public void setDefaultValue(String value) {
+    setProperty(DEFAULT_VALUE_PROP, value);
+  }
+
+  @Override
+  public String defaultValue() {
+    return property(DEFAULT_VALUE_PROP);
+  }
+
+  @Override
+  public Object decodeDefaultValue() {
+    return valueFromString(defaultValue());
+  }
+
+  @Override
+  public Object valueFromString(String value) {
+    throw new UnsupportedOperationException("Value conversion not supported for non-scalar columns");
+  }
+
+  @Override
+  public String valueToString(Object value) {
+    throw new UnsupportedOperationException("Value conversion not supported for non-scalar columns");
+  }
+
+  @JsonProperty("properties")
+  @Override
+  public Map<String, String> properties() {
+    return super.properties();
+  }
 
   @Override
   public String toString() {
@@ -184,14 +269,7 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
         .append("[")
         .append(getClass().getSimpleName())
         .append(" ")
-        .append(schema().toString())
-        .append(", ")
-        .append(projected ? "" : "not ")
-        .append("projected");
-    if (isArray()) {
-      buf.append(", cardinality: ")
-         .append(expectedElementCount);
-    }
+        .append(schema().toString(false));
     if (variantSchema() != null) {
       buf.append(", variant: ")
          .append(variantSchema().toString());
@@ -200,10 +278,66 @@ public abstract class AbstractColumnMetadata implements ColumnMetadata {
       buf.append(", schema: ")
          .append(mapSchema().toString());
     }
+    if (hasProperties()) {
+      buf.append(", properties: ")
+        .append(properties());
+    }
     return buf
         .append("]")
         .toString();
   }
 
-  public abstract AbstractColumnMetadata copy();
+  @JsonProperty("type")
+  @Override
+  public String typeString() {
+    return majorType().toString();
+  }
+
+  @Override
+  public String columnString() {
+    StringBuilder builder = new StringBuilder();
+    builder.append("`").append(escapeSpecialSymbols(name())).append("`");
+    builder.append(" ");
+    builder.append(typeString());
+
+    // Drill does not have nullability notion for complex types
+    if (!isNullable() && !isArray() && !isMap()) {
+      builder.append(" NOT NULL");
+    }
+
+    if (hasProperties()) {
+      if (format() != null) {
+        builder.append(" FORMAT '").append(format()).append("'");
+      }
+
+      if (defaultValue() != null) {
+        builder.append(" DEFAULT '").append(defaultValue()).append("'");
+      }
+
+      Map<String,String> copy = new HashMap<>();
+      copy.putAll(properties());
+      copy.remove(FORMAT_PROP);
+      copy.remove(DEFAULT_VALUE_PROP);
+      if (! copy.isEmpty()) {
+        builder.append(" PROPERTIES { ");
+        builder.append(copy.entrySet()
+          .stream()
+          .map(e -> String.format("'%s' = '%s'", e.getKey(), e.getValue()))
+          .collect(Collectors.joining(", ")));
+        builder.append(" }");
+      }
+    }
+
+    return builder.toString();
+  }
+
+  /**
+   * If given value contains backticks (`) or backslashes (\), escapes them.
+   *
+   * @param value string value
+   * @return updated value
+   */
+  private String escapeSpecialSymbols(String value) {
+    return value.replaceAll("(\\\\)|(`)", "\\\\$0");
+  }
 }

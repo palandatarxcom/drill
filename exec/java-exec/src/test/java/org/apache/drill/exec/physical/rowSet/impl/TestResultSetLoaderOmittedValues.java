@@ -23,22 +23,25 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
+import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
-import org.apache.drill.test.rowSet.schema.SchemaBuilder;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 
+@Category(RowSetTests.class)
 public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
 
   /**
@@ -158,8 +161,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .addRow( 10, "",    null,    0, null, strArray())
         .build();
 
-    new RowSetComparison(expected)
-        .verifyAndClearAll(actual);
+    RowSetUtilities.verify(expected, actual);
     rsLoader.close();
   }
 
@@ -321,8 +323,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .addRow(13, null)
         .build();
 //    expected.print();
-    new RowSetComparison(expected)
-      .verifyAndClearAll(result);
+    RowSetUtilities.verify(expected, result);
 
     rsLoader.close();
   }
@@ -375,6 +376,49 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
     RowSet result = fixture.wrap(rsLoader.harvest());
     assertEquals(0, result.rowCount());
     result.clear();
+
+    rsLoader.close();
+  }
+
+  /**
+   * Verify that a default value set on the schema is used to fill missing
+   * required columns.
+   */
+  @Test
+  public void testDefaultValues() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    schema.metadata("b").setDefaultValue("Foo");
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    rsLoader.startBatch();
+    for (int i = 0; i < 7; i++) {
+      rootWriter.start();
+      rootWriter.scalar(0).setInt(i + 1);
+      if (i % 3 != 0) {
+        rootWriter.scalar(1).setString("b-" + (i + 1));
+      }
+      rootWriter.save();
+    }
+
+    RowSet result = fixture.wrap(rsLoader.harvest());
+    SingleRowSet expected = fixture.rowSetBuilder(result.batchSchema())
+        .addRow( 1, "Foo")
+        .addRow( 2, "b-2")
+        .addRow( 3, "b-3")
+        .addRow( 4, "Foo")
+        .addRow( 5, "b-5")
+        .addRow( 6, "b-6")
+        .addRow( 7, "Foo")
+        .build();
+    RowSetUtilities.verify(expected, result);
 
     rsLoader.close();
   }

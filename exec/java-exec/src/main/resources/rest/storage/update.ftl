@@ -30,7 +30,7 @@
 <#macro page_body>
   <div class="page-header">
   </div>
-  <h3>Configuration</h3>
+  <h3>配置</h3>
   <form id="updateForm" role="form" action="/storage/create_update" method="POST">
     <input type="hidden" name="name" value="${model.getName()}" />
     <div class="form-group">
@@ -38,18 +38,18 @@
       <textarea class="form-control" id="config" name="config" data-editor="json" style="display: none;" >
       </textarea>
     </div>
-    <a class="btn btn-default" href="/storage">Back</a>
-    <button class="btn btn-default" type="submit" onclick="doUpdate();">Update</button>
+    <a class="btn btn-default" href="/storage">返回</a>
+    <button class="btn btn-default" type="submit" onclick="doUpdate();">保存</button>
     <#if model.enabled()>
-      <a id="enabled" class="btn btn-default">Disable</a>
+      <a id="enabled" class="btn btn-default">禁用</a>
     <#else>
-      <a id="enabled" class="btn btn-primary">Enable</a>
+      <a id="enabled" class="btn btn-primary">启用</a>
     </#if>
     <button type="button" class="btn btn-default export" name="${model.getName()}" data-toggle="modal"
             data-target="#pluginsModal">
-      Export
+      导出
     </button>
-    <a id="del" class="btn btn-danger" onclick="deleteFunction()">Delete</a>
+    <a id="del" class="btn btn-danger" onclick="deleteFunction()">删除</a>
   </form>
   <br>
   <div id="message" class="hidden alert alert-info">

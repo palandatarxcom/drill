@@ -117,7 +117,7 @@ public class WebServer implements AutoCloseable {
 
   private static final int PORT_HUNT_TRIES = 100;
   private static final String BASE_STATIC_PATH = "/rest/static/";
-  private static final String DRILL_ICON_RESOURCE_RELATIVE_PATH = "img/drill.ico";
+  private static final String DRILL_ICON_RESOURCE_RELATIVE_PATH = "img/favicon.ico";
 
   private final DrillConfig config;
   private final MetricRegistry metrics;

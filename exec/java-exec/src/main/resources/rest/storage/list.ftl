@@ -32,16 +32,16 @@
   <div class="page-header">
   </div>
 
-  <h4 class="col-xs-6">Plugin Management</h4>
+  <h4 class="col-xs-6">插件管理</h4>
   <table style="margin: 10px" class="table">
     <tbody>
     <tr>
       <td style="border:none;">
         <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#new-plugin-modal">
-          Create
+          创建
         </button>
         <button type="button" class="btn btn-primary" name="all" data-toggle="modal" data-target="#pluginsModal">
-          Export all
+          导出所有
         </button>
       </td>
     </tr>
@@ -51,7 +51,7 @@
   <div class="page-header" style="margin: 5px;"></div>
 
   <div class="table-responsive col-sm-12 col-md-6 col-lg-5 col-xl-5">
-    <h4>Enabled Storage Plugins</h4>
+    <h4>已启用的存储插件</h4>
     <table class="table table-hover">
       <tbody>
         <#list model as plugin>
@@ -62,14 +62,14 @@
               </td>
               <td style="border:none;">
                 <button type="button" class="btn btn-primary" onclick="location.href='/storage/${plugin.getName()}'">
-                  Update
+                  编辑
                 </button>
                 <button type="button" class="btn btn-warning" onclick="doEnable('${plugin.getName()}', false)">
-                  Disable
+                  禁用
                 </button>
                 <button type="button" class="btn" name="${plugin.getName()}" data-toggle="modal"
                         data-target="#pluginsModal">
-                  Export
+                  导出
                 </button>
               </td>
             </tr>
@@ -80,7 +80,7 @@
   </div>
 
   <div class="table-responsive col-sm-12 col-md-6 col-lg-7 col-xl-7">
-    <h4>Disabled Storage Plugins</h4>
+    <h4>已禁用的存储插件</h4>
     <table class="table table-hover">
       <tbody>
         <#list model as plugin>
@@ -91,14 +91,14 @@
               </td>
               <td style="border:none;">
                 <button type="button" class="btn btn-primary" onclick="location.href='/storage/${plugin.getName()}'">
-                  Update
+                  编辑
                 </button>
                 <button type="button" class="btn btn-success" onclick="doEnable('${plugin.getName()}', true)">
-                  Enable
+                  启用
                 </button>
                 <button type="button" class="btn" name="${plugin.getName()}" data-toggle="modal"
                         data-target="#pluginsModal">
-                  Export
+                  导出
                 </button>
               </td>
             </tr>
